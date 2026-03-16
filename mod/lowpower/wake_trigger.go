@@ -12,8 +12,8 @@ import (
 
 // // // // // // // // // //
 
-// wakeTriggerObj listens on the SOCKS port while the node sleeps.
-// On incoming connection, wakes the node and proxies the connection through SOCKS.
+// wakeTriggerObj слушает порт SOCKS пока узел спит.
+// При входящем соединении будит узел и проксирует соединение через SOCKS.
 type wakeTriggerObj struct {
 	listener net.Listener
 	mu       sync.Mutex
@@ -33,7 +33,7 @@ func (m *ManagerObj) startWakeTrigger(addr string) error {
 	network := "tcp"
 	if m.node.SocksIsUnix() {
 		network = "unix"
-		// Remove stale socket left over from SOCKS
+		// Удаляет устаревший сокет, оставшийся от SOCKS.
 		_ = os.Remove(addr)
 	}
 	listener, err := net.Listen(network, addr)
@@ -50,7 +50,7 @@ func (m *ManagerObj) startWakeTrigger(addr string) error {
 			if err != nil {
 				return
 			}
-			// Check under lock that listener is still alive — prevents wg.Add racing with wg.Wait
+			// Проверяет под блокировкой, что слушатель ещё жив — предотвращает гонку wg.Add и wg.Wait.
 			m.wakeTrigger.mu.Lock()
 			if m.wakeTrigger.listener == nil {
 				m.wakeTrigger.mu.Unlock()
@@ -65,8 +65,8 @@ func (m *ManagerObj) startWakeTrigger(addr string) error {
 	return nil
 }
 
-// handleWakeConnection wakes the node, waits for SOCKS readiness and proxies the connection.
-// ProxyTCP closes both connections, so early-return paths close conn explicitly.
+// handleWakeConnection будит узел, ожидает готовности SOCKS и проксирует соединение.
+// ProxyTCP закрывает оба соединения, поэтому ранние возвраты закрывают conn явно.
 func (m *ManagerObj) handleWakeConnection(conn net.Conn) {
 	defer m.wakeTrigger.wg.Done()
 
@@ -95,8 +95,8 @@ func (m *ManagerObj) handleWakeConnection(conn net.Conn) {
 		return
 	}
 
-	// Close connections on context cancellation so ProxyTCP unblocks.
-	// Without this, Stop() would hang on wg.Wait() while io.Copy blocks.
+	// Закрывает соединения при отмене контекста, чтобы разблокировать ProxyTCP.
+	// Без этого Stop() зависнет на wg.Wait() пока io.Copy блокирован.
 	proxyDone := make(chan struct{})
 	go func() {
 		select {
@@ -111,9 +111,9 @@ func (m *ManagerObj) handleWakeConnection(conn net.Conn) {
 	close(proxyDone)
 }
 
-// closeWakeListener closes the listener without waiting for goroutines.
-// Used on wake — no new connections accepted,
-// but in-flight handleWakeConnection goroutines continue.
+// closeWakeListener закрывает слушатель без ожидания горутин.
+// Используется при пробуждении — новые соединения не принимаются,
+// но горутины handleWakeConnection продолжают работу.
 func (m *ManagerObj) closeWakeListener() {
 	m.wakeTrigger.mu.Lock()
 	if m.wakeTrigger.listener != nil {
@@ -126,7 +126,7 @@ func (m *ManagerObj) closeWakeListener() {
 	m.wakeTrigger.mu.Unlock()
 }
 
-// stopWakeTrigger closes the listener and waits for all handleWakeConnection goroutines to finish.
+// stopWakeTrigger закрывает слушатель и ожидает завершения всех горутин handleWakeConnection.
 func (m *ManagerObj) stopWakeTrigger() {
 	m.closeWakeListener()
 	m.wakeTrigger.wg.Wait()

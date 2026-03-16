@@ -7,6 +7,6 @@ import (
 // // // // // // // // // //
 
 type ConfigObj struct {
-	// IdleTimeout is the idle duration before entering sleep. Default: 60s.
+	// IdleTimeout — период простоя перед переходом в спящий режим. По умолчанию: 60 с.
 	IdleTimeout time.Duration
 }

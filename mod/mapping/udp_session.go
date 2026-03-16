@@ -11,25 +11,25 @@ import (
 
 // // // // // // // // // //
 
-// UDPSessionObj holds the state of a single UDP session.
+// UDPSessionObj хранит состояние одной UDP-сессии.
 type UDPSessionObj struct {
 	Conn         net.Conn
 	RemoteAddr   net.Addr
 	LastActivity atomic.Int64
-	ConnId       string                     // "" when callback is nil
-	Callback     activity.CallbackInterface // nil when tracking is disabled
-	Counter      *activity.CounterObj       // nil when tracking is disabled
+	ConnId       string                     // "" если callback равен nil
+	Callback     activity.CallbackInterface // nil если отслеживание отключено
+	Counter      *activity.CounterObj       // nil если отслеживание отключено
 	CloseOnce    sync.Once
-	cancel       context.CancelFunc // cancels session context, stops ReverseProxyUDP
+	cancel       context.CancelFunc // отменяет контекст сессии, останавливает ReverseProxyUDP
 }
 
-// UDPSessionMapObj is a typed concurrent map of UDP sessions.
+// UDPSessionMapObj — типизированная конкурентная карта UDP-сессий.
 type UDPSessionMapObj struct {
 	mu   sync.RWMutex
 	data map[string]*UDPSessionObj
 }
 
-// NewUDPSessionMap creates an empty session map.
+// NewUDPSessionMap создаёт пустую карту сессий.
 func NewUDPSessionMap() *UDPSessionMapObj {
 	return &UDPSessionMapObj{data: make(map[string]*UDPSessionObj)}
 }

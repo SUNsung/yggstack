@@ -16,8 +16,8 @@ const (
 	acceptRetryMax     = 1 * time.Second
 )
 
-// isTransientAcceptError reports whether an Accept error is transient
-// (e.g. ECONNABORTED, EMFILE) and the listener should retry rather than exit.
+// isTransientAcceptError проверяет, является ли ошибка Accept временной
+// (например ECONNABORTED, EMFILE) и слушатель должен повторить попытку, а не завершиться.
 func isTransientAcceptError(err error) bool {
 	var ne net.Error
 	return errors.As(err, &ne) && ne.Temporary() //nolint:staticcheck
@@ -25,7 +25,7 @@ func isTransientAcceptError(err error) bool {
 
 // //
 
-// StartLocalTCP forwards a local TCP port to a remote Yggdrasil address.
+// StartLocalTCP перенаправляет локальный TCP-порт на удалённый адрес Yggdrasil.
 func StartLocalTCP(node NodeInterface, mappings []types.TCPMapping) {
 	log := node.GetLogger()
 	ns := node.GetNetstack()
@@ -97,7 +97,7 @@ func StartLocalTCP(node NodeInterface, mappings []types.TCPMapping) {
 	}
 }
 
-// StartRemoteTCP exposes a local TCP service to the Yggdrasil network.
+// StartRemoteTCP открывает локальный TCP-сервис в сети Yggdrasil.
 func StartRemoteTCP(node NodeInterface, mappings []types.TCPMapping) {
 	log := node.GetLogger()
 	ns := node.GetNetstack()

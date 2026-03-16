@@ -8,7 +8,7 @@ import (
 
 // // // // // // // // // //
 
-// CoreInterface abstracts the Yggdrasil core methods used by the peers package.
+// CoreInterface абстрагирует методы ядра Yggdrasil, используемые пакетом peers.
 type CoreInterface interface {
 	GetPeers() []core.PeerInfo
 	AddPeer(u *url.URL, sintf string) error
@@ -16,13 +16,13 @@ type CoreInterface interface {
 	RetryPeersNow()
 }
 
-// ChangeCallbackInterface is notified when the connected peer count changes.
-// Implementations must not block.
+// ChangeCallbackInterface уведомляется при изменении числа подключённых пиров.
+// Реализации не должны блокироваться.
 type ChangeCallbackInterface interface {
 	OnPeerCountChanged(connected int64, total int64)
 }
 
-// MonitorInterface is the contract for a peer monitor component.
+// MonitorInterface — контракт компонента мониторинга пиров.
 type MonitorInterface interface {
 	Run()
 	Cancel()

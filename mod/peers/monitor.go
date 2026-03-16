@@ -17,7 +17,7 @@ const (
 
 // //
 
-// MonitorObj polls core.GetPeers() with adaptive frequency.
+// MonitorObj опрашивает core.GetPeers() с адаптивной частотой.
 type MonitorObj struct {
 	core        CoreInterface
 	callback    ChangeCallbackInterface
@@ -28,7 +28,7 @@ type MonitorObj struct {
 	lastTotal   atomic.Int64
 }
 
-// NewMonitor creates a new peer monitor.
+// NewMonitor создаёт новый монитор пиров.
 func NewMonitor(core CoreInterface, callback ChangeCallbackInterface, connCounter *activity.CounterObj, ctx context.Context) *MonitorObj {
 	ctx, cancel := context.WithCancel(ctx)
 	return &MonitorObj{
@@ -40,7 +40,7 @@ func NewMonitor(core CoreInterface, callback ChangeCallbackInterface, connCounte
 	}
 }
 
-// Cancel stops the monitor.
+// Cancel останавливает монитор.
 func (m *MonitorObj) Cancel() {
 	m.cancel()
 }
@@ -49,7 +49,7 @@ func (m *MonitorObj) Run() {
 	ticker := time.NewTicker(pollSlow)
 	defer ticker.Stop()
 
-	// Initial snapshot
+	// Первоначальный снимок.
 	m.Poll()
 
 	for {

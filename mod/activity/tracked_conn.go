@@ -9,7 +9,7 @@ import (
 
 // // // // // // // // // //
 
-// TrackedConnObj wraps net.Conn and notifies the callback on Close.
+// TrackedConnObj оборачивает net.Conn и уведомляет callback при закрытии.
 type TrackedConnObj struct {
 	net.Conn
 	ConnId   string
@@ -21,7 +21,7 @@ type TrackedConnObj struct {
 func (t *TrackedConnObj) Close() error {
 	var innerErr error
 	t.closed.Do(func() {
-		// Decrement is deferred so it runs even if OnConnectionClosed panics.
+		// Decrement откладывается, чтобы выполниться даже при панике в OnConnectionClosed.
 		defer t.Counter.Decrement()
 		t.Callback.OnConnectionClosed(t.ConnId)
 		innerErr = t.Conn.Close()
@@ -33,7 +33,7 @@ func (t *TrackedConnObj) Close() error {
 
 var idCounter atomic.Uint64
 
-// GenerateConnId creates a unique connection ID using an atomic counter.
+// GenerateConnId создаёт уникальный идентификатор соединения через атомарный счётчик.
 func GenerateConnId(prefix string, addr string) string {
 	id := idCounter.Add(1)
 	buf := make([]byte, 0, len(prefix)+1+len(addr)+1+20)

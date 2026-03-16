@@ -11,9 +11,9 @@ import (
 
 // // // // // // // // // //
 
-// ManagerObj manages automatic sleep/wake transitions of the node.
-// All state transitions are driven by Run() — the single owning goroutine.
-// External callers request wake via TransitionToFullPower which sends to wakeCh.
+// ManagerObj управляет автоматическими переходами узла в спящий/активный режим.
+// Все переходы состояний выполняются через Run() — единственную владеющую горутину.
+// Внешние вызовы запрашивают пробуждение через TransitionToFullPower, отправляя в wakeCh.
 type ManagerObj struct {
 	node   NodeControlInterface
 	cfg    ConfigObj
@@ -22,15 +22,15 @@ type ManagerObj struct {
 	cancel context.CancelFunc
 	logger core.Logger
 
-	wakeCh chan struct{} // buffered(1): request wake from any goroutine without blocking
+	wakeCh chan struct{} // буфер(1): запрос пробуждения из любой горутины без блокировки
 
 	origCfgMu sync.RWMutex
-	origCfg   interface{} // opaque config passed back to StartComponents on wake
+	origCfg   interface{} // непрозрачная конфигурация, передаваемая в StartComponents при пробуждении
 
 	wakeTrigger      wakeTriggerObj
-	socksWaitTimeout time.Duration // SOCKS readiness timeout on wake (default 10s)
+	socksWaitTimeout time.Duration // таймаут готовности SOCKS при пробуждении (по умолчанию 10 с)
 
-	lastActivityAt atomic.Int64 // Unix timestamp of last activity
+	lastActivityAt atomic.Int64 // Unix-время последней активности
 }
 
 const defaultIdleTimeout = 60 * time.Second
@@ -66,8 +66,8 @@ func (m *ManagerObj) idleSeconds() int64 {
 
 // //
 
-// Run is the sole owner of state transitions.
-// Must be run in a dedicated goroutine.
+// Run — единственный владелец переходов состояний.
+// Должен выполняться в отдельной горутине.
 func (m *ManagerObj) Run() {
 	ticker := time.NewTicker(idleCheckInterval)
 	defer ticker.Stop()
@@ -78,7 +78,7 @@ func (m *ManagerObj) Run() {
 			return
 
 		case <-m.wakeCh:
-			// Wake request from TransitionToFullPower — process regardless of current state.
+			// Запрос пробуждения от TransitionToFullPower — обрабатывается вне зависимости от состояния.
 			if m.state.Load() != StateFullPower {
 				m.doTransitionToFullPower()
 			}
@@ -87,14 +87,14 @@ func (m *ManagerObj) Run() {
 			if m.state.Load() != StateFullPower {
 				continue
 			}
-			// Refresh lastActivity while there are active connections.
+			// Обновляет lastActivity при наличии активных соединений.
 			if m.node.ConnCounter().Count() > 0 {
 				m.touchActivity()
 				continue
 			}
 			if time.Duration(m.idleSeconds())*time.Second >= m.cfg.IdleTimeout {
 				m.transitionToLowPower()
-				// Process any wake signal that arrived while we were stopping.
+				// Обрабатывает сигнал пробуждения, пришедший в процессе остановки.
 				select {
 				case <-m.wakeCh:
 					m.doTransitionToFullPower()
@@ -107,8 +107,8 @@ func (m *ManagerObj) Run() {
 
 // //
 
-// transitionToLowPower stops components and enters sleep.
-// Must be called only from Run(). No-op if not in StateFullPower.
+// transitionToLowPower останавливает компоненты и переводит в спящий режим.
+// Вызывается только из Run(). Не выполняет действий, если не в StateFullPower.
 func (m *ManagerObj) transitionToLowPower() {
 	if m.state.Load() != StateFullPower {
 		return
@@ -120,7 +120,7 @@ func (m *ManagerObj) transitionToLowPower() {
 
 	m.node.StopComponents()
 
-	// Wake trigger on SOCKS port: wake the node when a client connects.
+	// Триггер пробуждения на порту SOCKS: будит узел при подключении клиента.
 	if socksAddr != "" {
 		if err := m.startWakeTrigger(socksAddr); err != nil {
 			m.logger.Errorf("Low power mode: %s — restarting components", err)
@@ -139,19 +139,19 @@ func (m *ManagerObj) transitionToLowPower() {
 	m.logger.Infof("Low power mode: sleeping")
 }
 
-// doTransitionToFullPower wakes the node.
-// Must be called only from Run().
+// doTransitionToFullPower будит узел.
+// Вызывается только из Run().
 func (m *ManagerObj) doTransitionToFullPower() {
 	m.state.Store(StateStarting)
 	m.logger.Infof("Low power mode: waking up")
 
-	// Close listener — no new connections accepted,
-	// but in-flight handleWakeConnection goroutines continue and wait for SOCKS.
+	// Закрывает слушатель — новые соединения не принимаются,
+	// но горутины handleWakeConnection продолжают работу и ожидают SOCKS.
 	m.closeWakeListener()
 
 	if err := m.node.StartComponents(m.getOrigCfg()); err != nil {
 		m.logger.Errorf("Low power mode: failed to restart components: %s", err)
-		// Re-enable wake trigger so a future connection can retry
+		// Повторно включает триггер пробуждения для будущих попыток подключения.
 		if socksAddr := m.node.SocksAddr(); socksAddr != "" {
 			if triggerErr := m.startWakeTrigger(socksAddr); triggerErr != nil {
 				m.logger.Errorf("Low power mode: failed to re-enable wake trigger: %s", triggerErr)
@@ -168,9 +168,9 @@ func (m *ManagerObj) doTransitionToFullPower() {
 
 // //
 
-// TransitionToFullPower signals Run() to wake the node.
-// Non-blocking: if a wake is already queued, the call is a no-op.
-// Safe to call from any goroutine.
+// TransitionToFullPower сигнализирует Run() о пробуждении узла.
+// Неблокирующий: если пробуждение уже поставлено в очередь, вызов — холостой.
+// Безопасен для вызова из любой горутины.
 func (m *ManagerObj) TransitionToFullPower() {
 	select {
 	case m.wakeCh <- struct{}{}:
@@ -180,21 +180,21 @@ func (m *ManagerObj) TransitionToFullPower() {
 
 // //
 
-// IsLowPower returns true if the node is sleeping or entering sleep.
+// IsLowPower возвращает true, если узел спит или переходит в спящий режим.
 func (m *ManagerObj) IsLowPower() bool {
 	s := m.state.Load()
 	return s == StateLowPower || s == StateStopping
 }
 
-// SetOrigConfig stores the configuration for restart on wake.
-// Safe to call from any goroutine.
+// SetOrigConfig сохраняет конфигурацию для перезапуска при пробуждении.
+// Безопасен для вызова из любой горутины.
 func (m *ManagerObj) SetOrigConfig(cfg interface{}) {
 	m.origCfgMu.Lock()
 	m.origCfg = cfg
 	m.origCfgMu.Unlock()
 }
 
-// OrigConfig returns the stored restart configuration.
+// OrigConfig возвращает сохранённую конфигурацию перезапуска.
 func (m *ManagerObj) OrigConfig() interface{} {
 	return m.getOrigCfg()
 }
@@ -205,7 +205,7 @@ func (m *ManagerObj) getOrigCfg() interface{} {
 	return m.origCfg
 }
 
-// GetState returns the current low power state as int32.
+// GetState возвращает текущее состояние энергосбережения как int32.
 func (m *ManagerObj) GetState() int32 {
 	return m.state.Load()
 }

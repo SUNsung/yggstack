@@ -7,7 +7,7 @@ import (
 
 // // // // // // // // // //
 
-// AddPeer adds a persistent peer at runtime. URI: "tcp://host:port", "quic://host:port", etc.
+// AddPeer добавляет постоянный пир во время работы. URI: "tcp://host:port", "quic://host:port" и т.д.
 func AddPeer(c CoreInterface, uri string) error {
 	if c == nil {
 		return fmt.Errorf("node is not running")
@@ -19,7 +19,7 @@ func AddPeer(c CoreInterface, uri string) error {
 	return c.AddPeer(u, "")
 }
 
-// RemovePeer removes a persistent peer at runtime.
+// RemovePeer удаляет постоянный пир во время работы.
 func RemovePeer(c CoreInterface, uri string) error {
 	if c == nil {
 		return fmt.Errorf("node is not running")
@@ -31,7 +31,7 @@ func RemovePeer(c CoreInterface, uri string) error {
 	return c.RemovePeer(u, "")
 }
 
-// RetryPeersNow forces an immediate reconnection attempt to all disconnected peers.
+// RetryPeersNow принудительно выполняет немедленную попытку переподключения ко всем отключённым пирам.
 func RetryPeersNow(c CoreInterface) {
 	if c == nil {
 		return

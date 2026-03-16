@@ -15,9 +15,9 @@ import (
 
 // // // // // // // // // //
 
-// removeUnixSocket removes a Unix socket file.
-// Returns an error if the path is a symlink — refuse to follow it to prevent
-// a local attacker from redirecting the removal to an arbitrary filesystem path.
+// removeUnixSocket удаляет файл Unix-сокета.
+// Возвращает ошибку если путь — символическая ссылка, во избежание
+// перенаправления удаления на произвольный путь файловой системы злоумышленником.
 func removeUnixSocket(path string) error {
 	fi, err := os.Lstat(path)
 	if err != nil {
@@ -34,14 +34,14 @@ func removeUnixSocket(path string) error {
 
 // //
 
-// SocksConfigObj holds SOCKS5 server parameters.
+// SocksConfigObj хранит параметры сервера SOCKS5.
 type SocksConfigObj struct {
 	Addr       string
 	Nameserver string
 	Verbose    bool
 }
 
-// SocksResultObj holds the result of starting the SOCKS5 server.
+// SocksResultObj хранит результат запуска сервера SOCKS5.
 type SocksResultObj struct {
 	Listener net.Listener
 	IsUnix   bool
@@ -49,8 +49,8 @@ type SocksResultObj struct {
 
 // //
 
-// StartSocks starts a SOCKS5 server and returns the listener.
-// readyCh is closed when the listener is ready to accept connections.
+// StartSocks запускает сервер SOCKS5 и возвращает слушатель.
+// readyCh закрывается когда слушатель готов принимать соединения.
 func StartSocks(node NodeInterface, cfg SocksConfigObj, readyCh chan struct{}) (*SocksResultObj, error) {
 	ns := node.GetNetstack()
 	log := node.GetLogger()
@@ -124,7 +124,7 @@ func StartSocks(node NodeInterface, cfg SocksConfigObj, readyCh chan struct{}) (
 		}
 	}
 
-	// Signal handleWakeConnection: SOCKS is ready
+	// Сигнализирует handleWakeConnection: SOCKS готов.
 	if readyCh != nil {
 		close(readyCh)
 	}

@@ -6,7 +6,7 @@ import (
 
 // // // // // // // // // //
 
-// NodeControlInterface decouples the low power manager from the node implementation.
+// NodeControlInterface отделяет менеджер энергосбережения от реализации узла.
 type NodeControlInterface interface {
 	StopComponents()
 	StartComponents(origCfg interface{}) error
@@ -16,7 +16,7 @@ type NodeControlInterface interface {
 	SocksReadyCh() <-chan struct{}
 }
 
-// ManagerInterface is the contract for a low power manager component.
+// ManagerInterface — контракт компонента менеджера энергосбережения.
 type ManagerInterface interface {
 	Run()
 	Stop()

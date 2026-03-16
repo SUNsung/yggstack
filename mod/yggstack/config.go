@@ -19,72 +19,72 @@ import (
 // // // // // // // // // //
 
 type ConfigObj struct {
-	// Ctx is the parent context for the node lifecycle.
-	// When cancelled, the node shuts down gracefully.
-	// If nil, context.Background() is used.
+	// Ctx — родительский контекст жизненного цикла узла.
+	// При отмене узел завершает работу корректно.
+	// Если nil, используется context.Background().
 	Ctx context.Context
 
-	// Config is the Yggdrasil node configuration (keys, peers, listen addresses, etc.).
-	// Generated via config.GenerateConfig(). Peers are specified in URI format:
+	// Config — конфигурация узла Yggdrasil (ключи, пиры, адреса прослушивания и т.д.).
+	// Генерируется через config.GenerateConfig(). Пиры задаются в URI-формате:
 	// tcp://host:port, tls://host:port, quic://host:port, ws://host:port, wss://host:port.
-	// If nil, a new config with random keys and AdminListen="none" is generated.
+	// Если nil, генерируется новая конфигурация со случайными ключами и AdminListen="none".
 	Config *config.NodeConfig
 
-	// Logger receives all node log output (peer connections, errors, etc.).
-	// Must implement yggdrasil-go core.Logger interface (Println, Infof, Warnf, Errorf, etc.).
-	// If nil, all log output is discarded.
+	// Logger получает весь лог-вывод узла (подключения пиров, ошибки и т.д.).
+	// Должен реализовывать интерфейс core.Logger из yggdrasil-go (Println, Infof, Warnf, Errorf и т.д.).
+	// Если nil, весь лог-вывод отбрасывается.
 	Logger core.Logger
 
-	// MulticastLogger enables mDNS peer discovery on local network.
-	// Requires *log.Logger (not core.Logger) due to upstream multicast.New() signature.
-	// If nil, multicast is disabled entirely.
+	// MulticastLogger включает mDNS-обнаружение пиров в локальной сети.
+	// Требует *log.Logger (не core.Logger) из-за сигнатуры multicast.New() в upstream.
+	// Если nil, multicast полностью отключён.
 	// TODO: switch to core.Logger when multicast.New() accepts an interface instead of *log.Logger
 	MulticastLogger *golog.Logger
 
-	// SocksAddr starts a SOCKS5 proxy server on the given address.
-	// TCP format: "127.0.0.1:1080" or ":1080".
-	// UNIX socket format: "/tmp/yggstack.sock" (no colon in the string).
-	// Supports CONNECT (TCP) and UDP ASSOCIATE commands.
-	// Resolves <publickey>.pk.ygg domains to Yggdrasil IPv6 addresses automatically.
-	// If empty, SOCKS5 proxy is not started.
+	// SocksAddr запускает SOCKS5-прокси-сервер на указанном адресе.
+	// TCP-формат: "127.0.0.1:1080" или ":1080".
+	// UNIX-сокет: "/tmp/yggstack.sock" (без двоеточия в строке).
+	// Поддерживает команды CONNECT (TCP) и UDP ASSOCIATE.
+	// Автоматически разрешает домены <publickey>.pk.ygg в IPv6-адреса Yggdrasil.
+	// Если пусто, SOCKS5-прокси не запускается.
 	SocksAddr string
 
-	// Nameserver is a Yggdrasil-accessible DNS server for resolving .ygg domains via SOCKS5.
-	// Format: "[ipv6]:port", e.g. "[324:71e:281a:9ed3::53]:53".
-	// Without this, only <publickey>.pk.ygg names resolve; other .ygg domains will fail.
-	// Only used when SocksAddr is set.
+	// Nameserver — DNS-сервер, доступный через Yggdrasil, для разрешения доменов .ygg через SOCKS5.
+	// Формат: "[ipv6]:port", например "[324:71e:281a:9ed3::53]:53".
+	// Без него разрешаются только имена <publickey>.pk.ygg; остальные .ygg-домены будут недоступны.
+	// Используется только когда задан SocksAddr.
 	Nameserver string
 
-	// SocksVerbose enables detailed SOCKS5 connection logging.
-	// Only used when SocksAddr is set.
+	// SocksVerbose включает подробное логирование соединений SOCKS5.
+	// Используется только когда задан SocksAddr.
 	SocksVerbose bool
 
-	// Mapping holds all port forwarding rules (local and remote, TCP and UDP).
+	// Mapping содержит все правила перенаправления портов (локальные и удалённые, TCP и UDP).
 	Mapping MappingConfigObj
 
-	// UDPSessionTimeout is the inactivity timeout for UDP forwarding sessions.
-	// After this duration without traffic, the session is closed and resources are freed.
-	// Default: 120s.
+	// UDPSessionTimeout — таймаут неактивности для UDP-сессий перенаправления.
+	// По истечении этого времени без трафика сессия закрывается и ресурсы освобождаются.
+	// По умолчанию: 120 с.
 	UDPSessionTimeout time.Duration
 
-	// ActivityCallback receives notifications on connection lifecycle (create/transfer/close).
-	// When nil, connections are not wrapped — zero overhead.
+	// ActivityCallback получает уведомления о жизненном цикле соединений (создание/передача/закрытие).
+	// Если nil, соединения не оборачиваются — без накладных расходов.
 	ActivityCallback activity.CallbackInterface
 
-	// PeerChangeCallback receives notifications when the number of connected peers changes.
-	// Uses adaptive polling: 500ms with active connections, 5s when idle.
-	// When nil, peer monitoring is disabled.
+	// PeerChangeCallback получает уведомления при изменении числа подключённых пиров.
+	// Использует адаптивный опрос: 500 мс при активных соединениях, 5 с в простое.
+	// Если nil, мониторинг пиров отключён.
 	PeerChangeCallback peers.ChangeCallbackInterface
 
-	// CoreStopTimeout limits the time spent waiting for core.Stop() to complete.
-	// When the timeout is exceeded, shutdown continues without waiting.
-	// Relevant when switching networks (WiFi → LTE), where peer closure can hang indefinitely.
-	// If 0 — waits forever (default, backward-compatible behavior).
+	// CoreStopTimeout ограничивает время ожидания завершения core.Stop().
+	// При превышении таймаута завершение продолжается без ожидания.
+	// Актуально при смене сети (WiFi → LTE), когда закрытие пиров может зависнуть навсегда.
+	// Если 0 — ждёт вечно (по умолчанию, обратная совместимость).
 	CoreStopTimeout time.Duration
 
-	// LowPower enables power saving: when no active connections exist for longer than
-	// IdleTimeout, the node stops. On incoming connection — restarts automatically.
-	// nil = disabled. Requires ActivityCallback != nil.
+	// LowPower включает энергосбережение: когда нет активных соединений дольше чем
+	// IdleTimeout, узел останавливается. При входящем соединении — перезапускается автоматически.
+	// nil = отключено. Требует ActivityCallback != nil.
 	LowPower *lowpower.ConfigObj
 
 	// NodeMapping overrides the default mapping.NodeInterface implementation.

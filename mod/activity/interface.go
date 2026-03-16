@@ -2,8 +2,8 @@ package activity
 
 // // // // // // // // // //
 
-// CallbackInterface receives connection lifecycle notifications.
-// Implementations must not block.
+// CallbackInterface получает уведомления о жизненном цикле соединений.
+// Реализации не должны блокироваться.
 type CallbackInterface interface {
 	OnConnectionCreated(connId string, protocol string)
 	OnConnectionClosed(connId string)

@@ -6,7 +6,7 @@ import (
 
 // // // // // // // // // //
 
-// CounterObj is an atomic counter for active tracked connections.
+// CounterObj — атомарный счётчик активных отслеживаемых соединений.
 type CounterObj struct {
 	active atomic.Int64
 }

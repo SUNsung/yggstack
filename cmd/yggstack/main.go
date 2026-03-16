@@ -25,7 +25,7 @@ import (
 	"github.com/yggdrasil-network/yggstack/src/types"
 )
 
-// The main function is responsible for configuring and starting Yggdrasil.
+// Конфигурирует и запускает Yggdrasil.
 func main() {
 	var localtcp types.TCPLocalMappings
 	var localudp types.UDPLocalMappings
@@ -52,10 +52,10 @@ func main() {
 	flag.Var(&remoteudp, "remote-udp", "UDP ports to expose to the network, e.g. 22, 2022:22, 22:192.168.1.1:2022")
 	flag.Parse()
 
-	// Catch interrupts from the operating system to exit gracefully.
+	// Перехватывает сигналы ОС для корректного завершения.
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
-	// Create a new logger that logs output to stdout.
+	// Создаёт логгер для вывода в stdout.
 	var logger *log.Logger
 	switch *logto {
 	case "stdout":
@@ -90,10 +90,8 @@ func main() {
 		return
 
 	case *autoconf:
-		// Force AdminListen to none in yggstack
+		// Отключает AdminListen в yggstack.
 		cfg.AdminListen = "none"
-		// Use an autoconf-generated config, this will give us random keys and
-		// port numbers, and will use an automatically selected TUN interface.
 
 	case *useconf:
 		if _, err := cfg.ReadFrom(os.Stdin); err != nil {
@@ -111,7 +109,7 @@ func main() {
 		_ = f.Close()
 
 	case *genconf:
-		// Force AdminListen to none in yggstack
+		// Отключает AdminListen в yggstack.
 		cfg.AdminListen = "none"
 		var bs []byte
 		if *confjson {
@@ -203,7 +201,7 @@ func main() {
 		panic(err)
 	}
 
-	// Block until we are told to shut down.
+	// Ожидает команду на завершение.
 	<-ctx.Done()
 	ygg.Close()
 }

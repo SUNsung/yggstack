@@ -8,7 +8,7 @@ import (
 
 // // // // // // // // // //
 
-// InfoObj holds peer state for JSON export.
+// InfoObj хранит состояние пира для экспорта в JSON.
 type InfoObj struct {
 	URI       string  `json:"uri"`
 	Up        bool    `json:"up"`
@@ -23,7 +23,7 @@ type InfoObj struct {
 
 // //
 
-// GetPeers returns a snapshot of all configured peers.
+// GetPeers возвращает снимок всех настроенных пиров.
 func GetPeers(c CoreInterface) []InfoObj {
 	if c == nil {
 		return []InfoObj{}
@@ -51,7 +51,7 @@ func GetPeers(c CoreInterface) []InfoObj {
 	return result
 }
 
-// GetPeersJSON returns peer stats as a JSON byte slice.
+// GetPeersJSON возвращает статистику пиров в виде JSON байт-слайса.
 func GetPeersJSON(c CoreInterface) ([]byte, error) {
 	if c == nil {
 		return nil, fmt.Errorf("node is not running")

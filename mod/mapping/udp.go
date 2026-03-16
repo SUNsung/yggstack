@@ -13,7 +13,7 @@ import (
 
 // // // // // // // // // //
 
-// StartLocalUDP forwards a local UDP port to a remote Yggdrasil address.
+// StartLocalUDP перенаправляет локальный UDP-порт на удалённый адрес Yggdrasil.
 func StartLocalUDP(node NodeInterface, mappings []types.UDPMapping, sessionTimeout time.Duration) {
 	log := node.GetLogger()
 	ns := node.GetNetstack()
@@ -37,7 +37,7 @@ func StartLocalUDP(node NodeInterface, mappings []types.UDPMapping, sessionTimeo
 	}
 }
 
-// StartRemoteUDP exposes a local UDP service to the Yggdrasil network.
+// StartRemoteUDP открывает локальный UDP-сервис в сети Yggdrasil.
 func StartRemoteUDP(node NodeInterface, mappings []types.UDPMapping, sessionTimeout time.Duration) {
 	log := node.GetLogger()
 	ns := node.GetNetstack()
@@ -61,8 +61,8 @@ func StartRemoteUDP(node NodeInterface, mappings []types.UDPMapping, sessionTime
 	}
 }
 
-// runUDPLoop reads incoming packets and manages per-source UDP sessions.
-// dialFn opens a new upstream connection for an unseen source address.
+// runUDPLoop читает входящие пакеты и управляет UDP-сессиями по источнику.
+// dialFn открывает новое upstream-соединение для нового адреса источника.
 func runUDPLoop(
 	node NodeInterface,
 	sessionTimeout time.Duration,
@@ -136,11 +136,11 @@ func runUDPLoop(
 
 // //
 
-// CloseUDPSession cancels the session context and closes the connection.
-// Notifies the activity callback if one is registered.
+// CloseUDPSession отменяет контекст сессии и закрывает соединение.
+// Уведомляет callback активности, если он зарегистрирован.
 func CloseUDPSession(session *UDPSessionObj, logger core.Logger) {
 	session.CloseOnce.Do(func() {
-		// Cancel context first — unblocks ReverseProxyUDP's pending Read via deadline.
+		// Сначала отменяет контекст — разблокирует ожидающий Read в ReverseProxyUDP через deadline.
 		if session.cancel != nil {
 			session.cancel()
 		}
@@ -152,8 +152,8 @@ func CloseUDPSession(session *UDPSessionObj, logger core.Logger) {
 	})
 }
 
-// CleanupUDPSessions periodically removes inactive UDP sessions.
-// On context cancellation, closes all remaining sessions to unblock ReverseProxyUDP goroutines.
+// CleanupUDPSessions периодически удаляет неактивные UDP-сессии.
+// При отмене контекста закрывает все оставшиеся сессии для разблокировки горутин ReverseProxyUDP.
 func CleanupUDPSessions(ctx context.Context, connections *UDPSessionMapObj, timeout time.Duration, logger core.Logger) {
 	ticker := time.NewTicker(timeout / 4)
 	defer ticker.Stop()
