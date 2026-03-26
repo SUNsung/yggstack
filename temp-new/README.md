@@ -112,7 +112,7 @@ J -->|реализует|K
 |------------------|-------------------------------------------------------------------------|
 | `Obj`            | Узел с полным набором возможностей: сетевые методы + SOCKS + управление |
 | `ConfigObj`      | Контекст, конфиг Yggdrasil, логгер, таймаут                             |
-| `SOCKSConfigObj` | Адрес прокси, DNS-сервер, verbose                                       |
+| `SOCKSConfigObj` | Адрес прокси, DNS-сервер, verbose, лимит соединений                     |
 
 ### `core`
 
@@ -138,7 +138,9 @@ flowchart TD
     HEX --> ADDR[Вычислить IPv6 из ключа]
     PK -->|Нет| IP{Это IPv6-литерал?}
     IP -->|Да| PASS[Вернуть как есть]
-    IP -->|Нет| DNS[DNS-запрос через Yggdrasil]
+    IP -->|Нет| NS{Nameserver настроен?}
+    NS -->|Нет| ERR[Ошибка: no nameserver configured]
+    NS -->|Да| DNS[DNS-запрос через Yggdrasil]
     DNS --> RESULT[Первый AAAA-адрес]
 ```
 
@@ -226,9 +228,10 @@ func main() {
 ```go
 // Включаем SOCKS5
 err = node.EnableSOCKS(yggstack.SOCKSConfigObj{
-Addr:       "127.0.0.1:1080",
-Nameserver: "[200:abcd::1]:53", // DNS через Yggdrasil
-Verbose:    true,
+Addr:           "127.0.0.1:1080",
+Nameserver:     "[200:abcd::1]:53", // DNS через Yggdrasil
+Verbose:        true,
+MaxConnections: 128, // 0 = без ограничений
 })
 if err != nil {
 panic(err)

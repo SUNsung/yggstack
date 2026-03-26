@@ -62,10 +62,11 @@ func (o *Obj) EnableSOCKS(cfg SOCKSConfigObj) error {
 	res := resolver.New(o.Interface, cfg.Nameserver)
 
 	return o.socksServer.Enable(socks.EnableConfigObj{
-		Addr:     cfg.Addr,
-		Resolver: res,
-		Verbose:  cfg.Verbose,
-		Logger:   o.logger,
+		Addr:           cfg.Addr,
+		Resolver:       res,
+		Verbose:        cfg.Verbose,
+		Logger:         o.logger,
+		MaxConnections: cfg.MaxConnections,
 	})
 }
 

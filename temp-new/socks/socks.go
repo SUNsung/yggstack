@@ -14,6 +14,8 @@ import (
 
 // // // // // // // // // //
 
+var _ ObjInterface = (*Obj)(nil)
+
 // Obj — SOCKS5-прокси-сервер поверх Yggdrasil
 type Obj struct {
 	network  NetworkInterface
@@ -35,6 +37,8 @@ type EnableConfigObj struct {
 	Verbose bool
 	// Логгер; nil → без логирования
 	Logger LoggerInterface
+	// Максимум одновременных соединений; 0 → без ограничений
+	MaxConnections int
 }
 
 // New создаёт SOCKS-сервер (не запускает его)
@@ -79,6 +83,13 @@ func (s *Obj) Enable(cfg EnableConfigObj) error {
 		return fmt.Errorf("listen %s: %w", cfg.Addr, err)
 	}
 	s.addr = cfg.Addr
+
+	if cfg.MaxConnections > 0 {
+		s.listener = &limitedListenerObj{
+			Listener: s.listener,
+			sem:      make(chan struct{}, cfg.MaxConnections),
+		}
+	}
 
 	if s.logger != nil {
 		s.logger.Infof("SOCKS5 started on %s", cfg.Addr)
@@ -164,4 +175,34 @@ func isAddrInUse(err error) bool {
 		}
 	}
 	return false
+}
+
+// //
+
+// limitedListenerObj ограничивает число одновременных соединений через семафор
+type limitedListenerObj struct {
+	net.Listener
+	sem chan struct{}
+}
+
+func (l *limitedListenerObj) Accept() (net.Conn, error) {
+	conn, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	l.sem <- struct{}{}
+	return &limitedConnObj{Conn: conn, sem: l.sem}, nil
+}
+
+// limitedConnObj освобождает слот семафора при закрытии
+type limitedConnObj struct {
+	net.Conn
+	once sync.Once
+	sem  chan struct{}
+}
+
+func (c *limitedConnObj) Close() error {
+	err := c.Conn.Close()
+	c.once.Do(func() { <-c.sem })
+	return err
 }

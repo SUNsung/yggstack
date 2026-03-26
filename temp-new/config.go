@@ -39,4 +39,7 @@ type SOCKSConfigObj struct {
 
 	// Подробное логирование SOCKS-соединений
 	Verbose bool
+
+	// Максимум одновременных соединений; 0 → без ограничений
+	MaxConnections int
 }

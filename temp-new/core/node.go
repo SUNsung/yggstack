@@ -24,6 +24,8 @@ import (
 
 var ErrNotAvailable = fmt.Errorf("netstack is not available")
 
+var _ Interface = (*Obj)(nil)
+
 // Obj — узел Yggdrasil с userspace TCP/UDP стеком.
 // Предоставляет стандартные Go-сетевые методы: DialContext, Listen, ListenPacket
 type Obj struct {
@@ -224,7 +226,7 @@ func (o *Obj) RemovePeer(uri string) error {
 // Интерфейсы берутся из NodeConfig.MulticastInterfaces.
 // logger — специфичный для multicast (upstream требует *golog.Logger)
 func (o *Obj) EnableMulticast(logger *golog.Logger) error {
-	return o.multicast.enable(func() (any, func() error, error) {
+	err := o.multicast.enable(func() (any, func() error, error) {
 		var options []multicast.SetupOption
 		for _, intf := range o.nodeCfg.MulticastInterfaces {
 			re, err := regexp.Compile(intf.Regex)
@@ -244,9 +246,13 @@ func (o *Obj) EnableMulticast(logger *golog.Logger) error {
 		if err != nil {
 			return nil, nil, fmt.Errorf("multicast.New: %w", err)
 		}
-		o.registerAdminHandlers(nil, mc)
 		return mc, mc.Stop, nil
 	})
+	if err != nil {
+		return err
+	}
+	o.registerAdminHandlers()
+	return nil
 }
 
 // DisableMulticast останавливает mDNS-обнаружение
@@ -259,17 +265,22 @@ func (o *Obj) DisableMulticast() error {
 // EnableAdmin запускает admin-сокет на указанном адресе.
 // Формат: "unix:///path" или "tcp://host:port"
 func (o *Obj) EnableAdmin(addr string) error {
-	return o.adminSocket.enable(func() (any, func() error, error) {
+	err := o.adminSocket.enable(func() (any, func() error, error) {
 		as, err := admin.New(o.core, o.logger, admin.ListenAddress(addr))
 		if err != nil {
 			return nil, nil, fmt.Errorf("admin.New: %w", err)
 		}
-		if as != nil {
-			as.SetupAdminHandlers()
+		if as == nil {
+			return nil, nil, fmt.Errorf("admin socket disabled for address %q", addr)
 		}
-		o.registerAdminHandlers(as, nil)
+		as.SetupAdminHandlers()
 		return as, as.Stop, nil
 	})
+	if err != nil {
+		return err
+	}
+	o.registerAdminHandlers()
+	return nil
 }
 
 // DisableAdmin останавливает admin-сокет
@@ -279,22 +290,14 @@ func (o *Obj) DisableAdmin() error {
 
 // //
 
-// registerAdminHandlers атомарно связывает admin и multicast.
-// Принимает только что созданный экземпляр; партнёрский берёт из componentObj
-func (o *Obj) registerAdminHandlers(as *admin.AdminSocket, mc *multicast.Multicast) {
+// registerAdminHandlers связывает admin и multicast если оба активны.
+// Вызывается после enable(), когда componentObj.mu уже отпущен
+func (o *Obj) registerAdminHandlers() {
 	o.handlersMu.Lock()
 	defer o.handlersMu.Unlock()
 
-	if as == nil {
-		if v, ok := o.adminSocket.get().(*admin.AdminSocket); ok {
-			as = v
-		}
-	}
-	if mc == nil {
-		if v, ok := o.multicast.get().(*multicast.Multicast); ok {
-			mc = v
-		}
-	}
+	as, _ := o.adminSocket.get().(*admin.AdminSocket)
+	mc, _ := o.multicast.get().(*multicast.Multicast)
 	if as != nil && mc != nil {
 		mc.SetupAdminHandlers(as)
 	}

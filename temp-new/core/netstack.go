@@ -69,6 +69,9 @@ func parseAddress(address string) (tcpip.FullAddress, tcpip.NetworkProtocolNumbe
 		if err != nil {
 			return tcpip.FullAddress{}, 0, fmt.Errorf("strconv.Atoi: %w", err)
 		}
+		if port < 0 || port > 65535 {
+			return tcpip.FullAddress{}, 0, fmt.Errorf("port %d out of range 0-65535", port)
+		}
 	}
 	addr := tcpip.Address{}
 	if ip := net.ParseIP(host); ip != nil {
