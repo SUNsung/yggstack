@@ -32,6 +32,7 @@ type nicObj struct {
 	dispatcher atomic.Pointer[stack.NetworkDispatcher]
 	readBuf    []byte
 	rstPackets chan *stack.PacketBuffer
+	rstDropped atomic.Int64
 	done       chan struct{}
 	readDone   chan struct{}
 	rstDone    chan struct{}
@@ -39,13 +40,13 @@ type nicObj struct {
 	logger     yggcore.Logger
 }
 
-func (s *netstackObj) newNIC(ygg *yggcore.Core) (*nicObj, tcpip.Error) {
+func (s *netstackObj) newNIC(ygg *yggcore.Core, rstQueueSize int) (*nicObj, tcpip.Error) {
 	rwc := ipv6rwc.NewReadWriteCloser(ygg)
 	nic := &nicObj{
 		ns:         s,
 		ipv6rwc:    rwc,
 		readBuf:    make([]byte, rwc.MTU()),
-		rstPackets: make(chan *stack.PacketBuffer, 100),
+		rstPackets: make(chan *stack.PacketBuffer, rstQueueSize),
 		done:       make(chan struct{}),
 		readDone:   make(chan struct{}),
 		rstDone:    make(chan struct{}),
@@ -153,16 +154,30 @@ func (*nicObj) Wait()                                        {}
 // //
 
 func (e *nicObj) writePacket(pkt *stack.PacketBuffer) tcpip.Error {
-	buf := writeBufPool.Get().([]byte)
-	vv := pkt.ToView()
-	n, err := vv.Read(buf)
-	if err != nil {
-		writeBufPool.Put(buf)
-		return &tcpip.ErrAborted{}
+	vl, offset := pkt.AsViewList()
+	front := vl.Front()
+	// Быстрый путь: один View — отправляем без копирования
+	if front != nil && front.Next() == nil {
+		if _, err := e.ipv6rwc.Write(front.AsSlice()[offset:]); err != nil {
+			return &tcpip.ErrAborted{}
+		}
+		return nil
 	}
-	_, werr := e.ipv6rwc.Write(buf[:n])
+	// Несколько View — собираем в буфер из пула
+	buf := writeBufPool.Get().([]byte)
+	n := 0
+	first := true
+	for v := front; v != nil; v = v.Next() {
+		s := v.AsSlice()
+		if first {
+			s = s[offset:]
+			first = false
+		}
+		n += copy(buf[n:], s)
+	}
+	_, err := e.ipv6rwc.Write(buf[:n])
 	writeBufPool.Put(buf)
-	if werr != nil {
+	if err != nil {
 		return &tcpip.ErrAborted{}
 	}
 	return nil
@@ -210,7 +225,8 @@ func (e *nicObj) enqueueRST(pkt *stack.PacketBuffer) {
 	case e.rstPackets <- pkt:
 	default:
 		pkt.DecRef()
-		e.logger.Debugf("RST packet dropped, queue full")
+		e.rstDropped.Add(1)
+		e.logger.Debugf("RST packet dropped, queue full (total dropped: %d)", e.rstDropped.Load())
 	}
 }
 

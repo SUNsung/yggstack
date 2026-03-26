@@ -118,6 +118,8 @@ func (s *Obj) Disable() error {
 	isUnix := s.isUnix
 	addr := s.addr
 	s.listener = nil
+	s.addr = ""
+	s.isUnix = false
 	s.mu.Unlock()
 
 	err := ln.Close()
@@ -164,13 +166,13 @@ func listenUnix(path string) (net.Listener, error) {
 	if !isAddrInUse(err) {
 		return nil, err
 	}
-	// Проверяем, жив ли процесс-владелец сокета
+	// EADDRINUSE — проверяем, жив ли процесс-владелец
 	probe, dialErr := net.Dial("unix", path)
 	if dialErr == nil {
 		_ = probe.Close()
 		return nil, fmt.Errorf("another instance is listening on %q", path)
 	}
-	// Процесс мёртв — безопасно удаляем устаревший сокет
+	// Процесс мёртв — удаляем устаревший сокет и сразу слушаем
 	if rmErr := removeUnixSocket(path); rmErr != nil {
 		return nil, rmErr
 	}
@@ -211,21 +213,13 @@ type limitedListenerObj struct {
 }
 
 func (l *limitedListenerObj) Accept() (net.Conn, error) {
-	for {
-		conn, err := l.Listener.Accept()
-		if err != nil {
-			return nil, err
-		}
-		select {
-		case l.sem <- struct{}{}:
-			return &limitedConnObj{Conn: conn, sem: l.sem}, nil
-		default:
-			_ = conn.Close()
-			if l.logger != nil {
-				l.logger.Infof("SOCKS connection rejected: limit %d reached", cap(l.sem))
-			}
-		}
+	l.sem <- struct{}{}
+	conn, err := l.Listener.Accept()
+	if err != nil {
+		<-l.sem
+		return nil, err
 	}
+	return &limitedConnObj{Conn: conn, sem: l.sem}, nil
 }
 
 // limitedConnObj освобождает слот семафора при закрытии

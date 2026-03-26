@@ -29,17 +29,18 @@ var _ Interface = (*Obj)(nil)
 // Obj — узел Yggdrasil с userspace TCP/UDP стеком.
 // Предоставляет стандартные Go-сетевые методы: DialContext, Listen, ListenPacket
 type Obj struct {
-	core        *yggcore.Core
-	nodeCfg     *config.NodeConfig
-	netstackPtr atomic.Pointer[netstackObj]
-	logger      yggcore.Logger
-	multicast   componentObj
-	adminSocket componentObj
-	handlersMu  sync.Mutex
-	closeOnce   sync.Once
-	closers     []io.Closer
-	closersMu   sync.Mutex
-	coreTimeout time.Duration
+	core         *yggcore.Core
+	nodeCfg      *config.NodeConfig
+	netstackPtr  atomic.Pointer[netstackObj]
+	logger       yggcore.Logger
+	multicast    componentObj
+	adminSocket  componentObj
+	handlersMu   sync.Mutex
+	closeOnce    sync.Once
+	closers      []io.Closer
+	closersMu    sync.Mutex
+	coreTimeout  time.Duration
+	rstQueueSize int
 }
 
 // New создаёт и запускает узел Yggdrasil.
@@ -56,12 +57,18 @@ func New(cfg ConfigObj) (*Obj, error) {
 		nodeCfg.AdminListen = "none"
 	}
 
+	rstQueueSize := cfg.RSTQueueSize
+	if rstQueueSize <= 0 {
+		rstQueueSize = 100
+	}
+
 	obj := &Obj{
-		nodeCfg:     nodeCfg,
-		logger:      log,
-		coreTimeout: cfg.CoreStopTimeout,
-		multicast:   componentObj{name: "multicast"},
-		adminSocket: componentObj{name: "admin"},
+		nodeCfg:      nodeCfg,
+		logger:       log,
+		coreTimeout:  cfg.CoreStopTimeout,
+		rstQueueSize: rstQueueSize,
+		multicast:    componentObj{name: "multicast"},
+		adminSocket:  componentObj{name: "admin"},
 	}
 
 	// Ядро Yggdrasil
@@ -72,7 +79,7 @@ func New(cfg ConfigObj) (*Obj, error) {
 	}
 
 	// Сетевой стек
-	ns, err := newNetstack(obj.core, log)
+	ns, err := newNetstack(obj.core, log, rstQueueSize)
 	if err != nil {
 		obj.core.Stop()
 		return nil, fmt.Errorf("netstack: %w", err)
@@ -92,13 +99,19 @@ func New(cfg ConfigObj) (*Obj, error) {
 func (o *Obj) Close() error {
 	o.closeOnce.Do(func() {
 		// Компоненты — до закрытия core
-		_ = o.multicast.disable()
-		_ = o.adminSocket.disable()
+		if err := o.multicast.disable(); err != nil {
+			o.logger.Warnf("multicast disable: %v", err)
+		}
+		if err := o.adminSocket.disable(); err != nil {
+			o.logger.Warnf("admin disable: %v", err)
+		}
 
 		// Зарегистрированные ресурсы (listeners и т.д.)
 		o.closersMu.Lock()
 		for _, c := range o.closers {
-			_ = c.Close()
+			if err := c.Close(); err != nil {
+				o.logger.Warnf("closer: %v", err)
+			}
 		}
 		o.closers = nil
 		o.closersMu.Unlock()
@@ -201,6 +214,15 @@ func (o *Obj) MTU() uint64 {
 }
 
 // //
+
+// RSTDropped — количество отброшенных RST-пакетов из-за переполнения очереди
+func (o *Obj) RSTDropped() int64 {
+	ns := o.netstackPtr.Load()
+	if ns == nil || ns.nic == nil {
+		return 0
+	}
+	return ns.nic.rstDropped.Load()
+}
 
 // AddPeer добавляет пир в runtime. URI: "tcp://host:port", "quic://host:port"
 func (o *Obj) AddPeer(uri string) error {

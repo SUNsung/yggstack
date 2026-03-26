@@ -19,4 +19,7 @@ type ConfigObj struct {
 
 	// Таймаут core.Stop(); 0 → ожидание без ограничений
 	CoreStopTimeout time.Duration
+
+	// Размер очереди отложенных RST-пакетов; 0 → 100
+	RSTQueueSize int
 }

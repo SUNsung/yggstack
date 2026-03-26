@@ -26,7 +26,7 @@ type netstackObj struct {
 	logger yggcore.Logger
 }
 
-func newNetstack(ygg *yggcore.Core, log yggcore.Logger) (*netstackObj, error) {
+func newNetstack(ygg *yggcore.Core, log yggcore.Logger, rstQueueSize int) (*netstackObj, error) {
 	s := &netstackObj{
 		stack: stack.New(stack.Options{
 			NetworkProtocols:   []stack.NetworkProtocolFactory{ipv6.NewProtocol},
@@ -36,7 +36,7 @@ func newNetstack(ygg *yggcore.Core, log yggcore.Logger) (*netstackObj, error) {
 		logger: log,
 	}
 	s.stack.AllowICMPMessage()
-	nic, tcpErr := s.newNIC(ygg)
+	nic, tcpErr := s.newNIC(ygg, rstQueueSize)
 	if tcpErr != nil {
 		s.stack.Destroy()
 		return nil, fmt.Errorf("newNIC: %s", tcpErr.String())

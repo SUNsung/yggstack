@@ -81,8 +81,12 @@ func (o *Obj) DisableSOCKS() error {
 func (o *Obj) Close() error {
 	o.closeOnce.Do(func() {
 		close(o.done)
-		_ = o.socksServer.Disable()
-		_ = o.Interface.Close()
+		if err := o.socksServer.Disable(); err != nil && o.logger != nil {
+			o.logger.Warnf("socks disable: %v", err)
+		}
+		if err := o.Interface.Close(); err != nil && o.logger != nil {
+			o.logger.Warnf("core close: %v", err)
+		}
 	})
 	return nil
 }
