@@ -160,6 +160,12 @@ func (o *Obj) ListenPacket(network, address string) (net.PacketConn, error) {
 
 // //
 
+// UnsafeCore — прямой доступ к ядру Yggdrasil.
+// Не является частью стабильного API; upstream может измениться без предупреждения
+func (o *Obj) UnsafeCore() *yggcore.Core {
+	return o.core
+}
+
 // Address — IPv6-адрес узла в диапазоне 200::/7
 func (o *Obj) Address() net.IP {
 	if o.core == nil {
@@ -218,6 +224,31 @@ func (o *Obj) RemovePeer(uri string) error {
 		return fmt.Errorf("url.Parse: %w", err)
 	}
 	return o.core.RemovePeer(u, "")
+}
+
+// GetPeers возвращает информацию обо всех пирах (подключённых и настроенных)
+func (o *Obj) GetPeers() []PeerInfoObj {
+	if o.core == nil {
+		return nil
+	}
+	peers := o.core.GetPeers()
+	result := make([]PeerInfoObj, len(peers))
+	for i, p := range peers {
+		result[i] = PeerInfoObj{
+			URI:           p.URI,
+			Up:            p.Up,
+			Inbound:       p.Inbound,
+			Key:           p.Key,
+			Latency:       p.Latency,
+			Cost:          p.Cost,
+			RXBytes:       p.RXBytes,
+			TXBytes:       p.TXBytes,
+			Uptime:        p.Uptime,
+			LastError:     p.LastError,
+			LastErrorTime: p.LastErrorTime,
+		}
+	}
+	return result
 }
 
 // //
