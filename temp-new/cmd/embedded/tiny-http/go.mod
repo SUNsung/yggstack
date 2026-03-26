@@ -1,4 +1,4 @@
-module tiny-http
+module github.com/yggdrasil-network/yggstack/temp-new/cmd/embedded/tiny-http
 
 go 1.25.5
 

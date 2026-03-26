@@ -13,6 +13,9 @@ import (
 	"time"
 
 	"github.com/yggdrasil-network/yggdrasil-go/src/config"
+
+	yggstack "github.com/yggdrasil-network/yggstack/temp-new"
+	"github.com/yggdrasil-network/yggstack/temp-new/mod/core"
 )
 
 // // // // // // // // // //
@@ -486,7 +489,9 @@ func (y *Yggstack) RetryPeersNow() {
 	node := y.node
 	y.mu.Unlock()
 	if node != nil {
-		node.UnsafeCore().RetryPeersNow()
+		if coreObj, ok := node.Interface.(*core.Obj); ok {
+			coreObj.UnsafeCore().RetryPeersNow()
+		}
 	}
 }
 

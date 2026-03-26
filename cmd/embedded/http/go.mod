@@ -8,7 +8,7 @@ require (
 	github.com/yggdrasil-network/yggdrasil-go v0.5.13
 	github.com/yggdrasil-network/yggstack v0.0.0
 	gopkg.in/yaml.v3 v3.0.1
-	lukechampine.com/blake3 v1.3.0
+	lukechampine.com/blake3 v1.4.1
 )
 
 require (

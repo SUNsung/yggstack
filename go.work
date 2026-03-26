@@ -8,4 +8,9 @@ use (
 	cmd/embedded/tiny-http
 	cmd/yggstack
 	temp-new
+	temp-new/cmd/embedded/http
+	temp-new/cmd/embedded/mobile
+	temp-new/cmd/embedded/tiny-chat
+	temp-new/cmd/embedded/tiny-http
+	temp-new/cmd/yggstack
 )

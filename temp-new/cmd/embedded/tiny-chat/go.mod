@@ -1,4 +1,4 @@
-module tiny-chat
+module github.com/yggdrasil-network/yggstack/temp-new/cmd/embedded/tiny-chat
 
 go 1.25.5
 

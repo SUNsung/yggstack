@@ -1,10 +1,10 @@
-module http-demo
+module github.com/yggdrasil-network/yggstack/temp-new/cmd/embedded/http
 
 go 1.25.5
 
 require (
 	github.com/gologme/log v1.3.0
-	github.com/klauspost/compress v1.15.9
+	github.com/klauspost/compress v1.17.4
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/yggdrasil-network/yggdrasil-go v0.5.13
 	github.com/yggdrasil-network/yggstack/temp-new v0.0.0

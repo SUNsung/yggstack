@@ -1,4 +1,4 @@
-module yggstack
+module github.com/yggdrasil-network/yggstack/temp-new/cmd/yggstack
 
 go 1.25.5
 
