@@ -3,6 +3,8 @@ package yggstack
 import (
 	"sync"
 
+	yggcore "github.com/yggdrasil-network/yggdrasil-go/src/core"
+
 	"github.com/yggdrasil-network/yggstack/temp-new/core"
 	"github.com/yggdrasil-network/yggstack/temp-new/resolver"
 	"github.com/yggdrasil-network/yggstack/temp-new/socks"
@@ -17,7 +19,7 @@ import (
 type Obj struct {
 	core.Interface
 	socksServer socks.ObjInterface
-	logger      socks.LoggerInterface
+	logger      yggcore.Logger
 	done        chan struct{}
 	closeOnce   sync.Once
 }

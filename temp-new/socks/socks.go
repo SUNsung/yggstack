@@ -10,6 +10,8 @@ import (
 	"syscall"
 
 	"github.com/things-go/go-socks5"
+	yggcore "github.com/yggdrasil-network/yggdrasil-go/src/core"
+	"golang.org/x/net/proxy"
 )
 
 // // // // // // // // // //
@@ -18,11 +20,11 @@ var _ ObjInterface = (*Obj)(nil)
 
 // Obj — SOCKS5-прокси-сервер поверх Yggdrasil
 type Obj struct {
-	network  NetworkInterface
+	network  proxy.ContextDialer
 	listener net.Listener
 	addr     string
 	isUnix   bool
-	logger   LoggerInterface
+	logger   yggcore.Logger
 	mu       sync.Mutex
 	wg       sync.WaitGroup
 }
@@ -32,17 +34,17 @@ type EnableConfigObj struct {
 	// Адрес: TCP "127.0.0.1:1080" или Unix "/tmp/ygg.sock"
 	Addr string
 	// Резолвер имён (.pk.ygg, DNS)
-	Resolver ResolverInterface
+	Resolver socks5.NameResolver
 	// Подробное логирование каждого соединения
 	Verbose bool
 	// Логгер; nil → без логирования
-	Logger LoggerInterface
+	Logger yggcore.Logger
 	// Максимум одновременных соединений; 0 → без ограничений
 	MaxConnections int
 }
 
 // New создаёт SOCKS-сервер (не запускает его)
-func New(network NetworkInterface) *Obj {
+func New(network proxy.ContextDialer) *Obj {
 	return &Obj{network: network}
 }
 
@@ -184,7 +186,7 @@ func isAddrInUse(err error) bool {
 type limitedListenerObj struct {
 	net.Listener
 	sem    chan struct{}
-	logger LoggerInterface
+	logger yggcore.Logger
 }
 
 func (l *limitedListenerObj) Accept() (net.Conn, error) {
