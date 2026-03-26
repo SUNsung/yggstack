@@ -66,14 +66,14 @@ func (s *Obj) Enable(cfg EnableConfigObj) error {
 
 	s.logger = cfg.Logger
 
-	// TCP если содержит ":", иначе Unix-сокет
+	// Путь файловой системы → Unix-сокет, иначе TCP
 	var err error
-	if strings.Contains(cfg.Addr, ":") {
-		s.listener, err = net.Listen("tcp", cfg.Addr)
-		s.isUnix = false
-	} else {
+	if strings.HasPrefix(cfg.Addr, "/") || strings.HasPrefix(cfg.Addr, ".") {
 		s.listener, err = listenUnix(cfg.Addr)
 		s.isUnix = true
+	} else {
+		s.listener, err = net.Listen("tcp", cfg.Addr)
+		s.isUnix = false
 	}
 	if err != nil {
 		return fmt.Errorf("listen %s: %w", cfg.Addr, err)

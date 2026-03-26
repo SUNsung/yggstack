@@ -12,7 +12,7 @@ import (
 // value хранит типизированный экземпляр для доступа через get()
 type componentObj struct {
 	name   string
-	mu     sync.Mutex
+	mu     sync.RWMutex
 	value  any
 	stopFn func() error
 }
@@ -51,7 +51,7 @@ func (c *componentObj) disable() error {
 
 // get возвращает типизированный экземпляр (nil если неактивен)
 func (c *componentObj) get() any {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.value
 }

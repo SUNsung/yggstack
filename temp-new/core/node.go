@@ -33,6 +33,7 @@ type Obj struct {
 	logger      yggcore.Logger
 	multicast   componentObj
 	adminSocket componentObj
+	handlersMu  sync.Mutex
 	closeOnce   sync.Once
 	closers     []io.Closer
 	closersMu   sync.Mutex
@@ -243,10 +244,7 @@ func (o *Obj) EnableMulticast(logger *golog.Logger) error {
 		if err != nil {
 			return nil, nil, fmt.Errorf("multicast.New: %w", err)
 		}
-		// Регистрация admin-хендлеров если admin уже включён
-		if as, ok := o.adminSocket.get().(*admin.AdminSocket); ok && as != nil {
-			mc.SetupAdminHandlers(as)
-		}
+		o.registerAdminHandlers(nil, mc)
 		return mc, mc.Stop, nil
 	})
 }
@@ -269,10 +267,7 @@ func (o *Obj) EnableAdmin(addr string) error {
 		if as != nil {
 			as.SetupAdminHandlers()
 		}
-		// Регистрация multicast-хендлеров если multicast уже включён
-		if mc, ok := o.multicast.get().(*multicast.Multicast); ok && mc != nil {
-			mc.SetupAdminHandlers(as)
-		}
+		o.registerAdminHandlers(as, nil)
 		return as, as.Stop, nil
 	})
 }
@@ -283,6 +278,27 @@ func (o *Obj) DisableAdmin() error {
 }
 
 // //
+
+// registerAdminHandlers атомарно связывает admin и multicast.
+// Принимает только что созданный экземпляр; партнёрский берёт из componentObj
+func (o *Obj) registerAdminHandlers(as *admin.AdminSocket, mc *multicast.Multicast) {
+	o.handlersMu.Lock()
+	defer o.handlersMu.Unlock()
+
+	if as == nil {
+		if v, ok := o.adminSocket.get().(*admin.AdminSocket); ok {
+			as = v
+		}
+	}
+	if mc == nil {
+		if v, ok := o.multicast.get().(*multicast.Multicast); ok {
+			mc = v
+		}
+	}
+	if as != nil && mc != nil {
+		mc.SetupAdminHandlers(as)
+	}
+}
 
 func (o *Obj) addCloser(c io.Closer) {
 	o.closersMu.Lock()

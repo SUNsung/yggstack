@@ -191,7 +191,18 @@ func (e *nicObj) WritePackets(list stack.PacketBufferList) (int, tcpip.Error) {
 				select {
 				case e.rstPackets <- pkt:
 				default:
-					pkt.DecRef()
+					select {
+					case old := <-e.rstPackets:
+						old.DecRef()
+						e.logger.Debugf("RST packet evicted from full queue")
+					default:
+					}
+					select {
+					case e.rstPackets <- pkt:
+					default:
+						pkt.DecRef()
+						e.logger.Debugf("RST packet dropped, queue full")
+					}
 				}
 				continue
 			}

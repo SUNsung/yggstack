@@ -33,15 +33,10 @@ func New(cfg ConfigObj) (*Obj, error) {
 		return nil, err
 	}
 
-	var logger socks.LoggerInterface
-	if cfg.Logger != nil {
-		logger = cfg.Logger
-	}
-
 	obj := &Obj{
 		Interface:   coreNode,
 		socksServer: socks.New(coreNode),
-		logger:      logger,
+		logger:      cfg.Logger,
 		done:        make(chan struct{}),
 	}
 
