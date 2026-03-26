@@ -1,0 +1,90 @@
+package yggstack
+
+import (
+	"sync"
+
+	"github.com/yggdrasil-network/yggstack/temp-new/core"
+	"github.com/yggdrasil-network/yggstack/temp-new/resolver"
+	"github.com/yggdrasil-network/yggstack/temp-new/socks"
+)
+
+// // // // // // // // // //
+
+// Obj — узел Yggdrasil для встраивания в приложения.
+// Объединяет ядро (DialContext/Listen), резолвер (.pk.ygg) и SOCKS5.
+// Все сетевые методы ядра доступны напрямую через встраивание интерфейса.
+// Multicast и Admin доступны через core.Interface
+type Obj struct {
+	core.Interface
+	socksServer socks.ObjInterface
+	logger      socks.LoggerInterface
+	done        chan struct{}
+	closeOnce   sync.Once
+}
+
+// New создаёт и запускает узел
+func New(cfg ConfigObj) (*Obj, error) {
+	coreNode, err := core.New(core.ConfigObj{
+		Config:          cfg.Config,
+		Logger:          cfg.Logger,
+		CoreStopTimeout: cfg.CoreStopTimeout,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var logger socks.LoggerInterface
+	if cfg.Logger != nil {
+		logger = cfg.Logger
+	}
+
+	obj := &Obj{
+		Interface:   coreNode,
+		socksServer: socks.New(coreNode),
+		logger:      logger,
+		done:        make(chan struct{}),
+	}
+
+	// Автозавершение при отмене контекста
+	if cfg.Ctx != nil {
+		go func() {
+			select {
+			case <-cfg.Ctx.Done():
+				obj.Close()
+			case <-obj.done:
+			}
+		}()
+	}
+
+	return obj, nil
+}
+
+// //
+
+// EnableSOCKS запускает SOCKS5-прокси с указанными параметрами.
+// Резолвер создаётся автоматически на основе cfg.Nameserver
+func (o *Obj) EnableSOCKS(cfg SOCKSConfigObj) error {
+	res := resolver.New(o.Interface, cfg.Nameserver)
+
+	return o.socksServer.Enable(socks.EnableConfigObj{
+		Addr:     cfg.Addr,
+		Resolver: res,
+		Verbose:  cfg.Verbose,
+		Logger:   o.logger,
+	})
+}
+
+// DisableSOCKS останавливает SOCKS5-прокси
+func (o *Obj) DisableSOCKS() error {
+	return o.socksServer.Disable()
+}
+
+// Close корректно останавливает SOCKS и ядро; безопасен для повторного вызова
+func (o *Obj) Close() error {
+	o.closeOnce.Do(func() {
+		close(o.done)
+		_ = o.socksServer.Disable()
+		_ = o.Interface.Close()
+	})
+	return nil
+}

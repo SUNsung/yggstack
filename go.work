@@ -7,4 +7,5 @@ use (
 	cmd/embedded/tiny-chat
 	cmd/embedded/tiny-http
 	cmd/yggstack
+	temp-new
 )
