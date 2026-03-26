@@ -3,6 +3,7 @@ package core
 import (
 	"net"
 	"sync"
+	"sync/atomic"
 
 	yggcore "github.com/yggdrasil-network/yggdrasil-go/src/core"
 	"github.com/yggdrasil-network/yggdrasil-go/src/ipv6rwc"
@@ -28,8 +29,7 @@ var writeBufPool = sync.Pool{
 type nicObj struct {
 	ns         *netstackObj
 	ipv6rwc    *ipv6rwc.ReadWriteCloser
-	dispatcher stack.NetworkDispatcher
-	dispMu     sync.RWMutex
+	dispatcher atomic.Pointer[stack.NetworkDispatcher]
 	readBuf    []byte
 	rstPackets chan *stack.PacketBuffer
 	done       chan struct{}
@@ -71,11 +71,8 @@ func (s *netstackObj) newNIC(ygg *yggcore.Core) (*nicObj, tcpip.Error) {
 			pkb := stack.NewPacketBuffer(stack.PacketBufferOptions{
 				Payload: buffer.MakeWithData(nic.readBuf[:rx]),
 			})
-			nic.dispMu.RLock()
-			d := nic.dispatcher
-			nic.dispMu.RUnlock()
-			if d != nil {
-				d.DeliverNetworkPacket(ipv6.ProtocolNumber, pkb)
+			if d := nic.dispatcher.Load(); d != nil {
+				(*d).DeliverNetworkPacket(ipv6.ProtocolNumber, pkb)
 			}
 			pkb.DecRef()
 		}
@@ -118,20 +115,18 @@ func (s *netstackObj) newNIC(ygg *yggcore.Core) (*nicObj, tcpip.Error) {
 	}
 	s.stack.AddRoute(tcpip.Route{Destination: subnet, NIC: 1})
 
-	// Регистрация локального адреса для HandleLocal
-	if s.stack.HandleLocal() {
-		ip := ygg.Address()
-		if err := s.stack.AddProtocolAddress(
-			1,
-			tcpip.ProtocolAddress{
-				Protocol:          ipv6.ProtocolNumber,
-				AddressWithPrefix: tcpip.AddrFromSlice(ip.To16()).WithPrefix(),
-			},
-			stack.AddressProperties{},
-		); err != nil {
-			nic.Close()
-			return nil, err
-		}
+	// Регистрация локального адреса (HandleLocal всегда включён)
+	ip := ygg.Address()
+	if err := s.stack.AddProtocolAddress(
+		1,
+		tcpip.ProtocolAddress{
+			Protocol:          ipv6.ProtocolNumber,
+			AddressWithPrefix: tcpip.AddrFromSlice(ip.To16()).WithPrefix(),
+		},
+		stack.AddressProperties{},
+	); err != nil {
+		nic.Close()
+		return nil, err
 	}
 
 	return nic, nil
@@ -140,15 +135,11 @@ func (s *netstackObj) newNIC(ygg *yggcore.Core) (*nicObj, tcpip.Error) {
 // //
 
 func (e *nicObj) Attach(dispatcher stack.NetworkDispatcher) {
-	e.dispMu.Lock()
-	e.dispatcher = dispatcher
-	e.dispMu.Unlock()
+	e.dispatcher.Store(&dispatcher)
 }
 
 func (e *nicObj) IsAttached() bool {
-	e.dispMu.RLock()
-	defer e.dispMu.RUnlock()
-	return e.dispatcher != nil
+	return e.dispatcher.Load() != nil
 }
 
 func (e *nicObj) MTU() uint32                                { return uint32(e.ipv6rwc.MTU()) }
@@ -162,25 +153,27 @@ func (*nicObj) Wait()                                        {}
 // //
 
 func (e *nicObj) writePacket(pkt *stack.PacketBuffer) tcpip.Error {
-	defer func() {
-		if r := recover(); r != nil {
-			e.logger.Println("writePacket panic:", r)
-		}
-	}()
 	buf := writeBufPool.Get().([]byte)
-	defer writeBufPool.Put(buf)
 	vv := pkt.ToView()
 	n, err := vv.Read(buf)
 	if err != nil {
+		writeBufPool.Put(buf)
 		return &tcpip.ErrAborted{}
 	}
-	if _, err = e.ipv6rwc.Write(buf[:n]); err != nil {
+	_, werr := e.ipv6rwc.Write(buf[:n])
+	writeBufPool.Put(buf)
+	if werr != nil {
 		return &tcpip.ErrAborted{}
 	}
 	return nil
 }
 
 func (e *nicObj) WritePackets(list stack.PacketBufferList) (int, tcpip.Error) {
+	defer func() {
+		if r := recover(); r != nil {
+			e.logger.Println("WritePackets panic:", r)
+		}
+	}()
 	for i, pkt := range list.AsSlice() {
 		// TCP RST без payload — отправляем отложенно через канал
 		if pkt.Data().Size() == 0 &&
@@ -188,22 +181,7 @@ func (e *nicObj) WritePackets(list stack.PacketBufferList) (int, tcpip.Error) {
 			tcpHdr := header.TCP(pkt.TransportHeader().Slice())
 			if (tcpHdr.Flags() & header.TCPFlagRst) == header.TCPFlagRst {
 				pkt.IncRef()
-				select {
-				case e.rstPackets <- pkt:
-				default:
-					select {
-					case old := <-e.rstPackets:
-						old.DecRef()
-						e.logger.Debugf("RST packet evicted from full queue")
-					default:
-					}
-					select {
-					case e.rstPackets <- pkt:
-					default:
-						pkt.DecRef()
-						e.logger.Debugf("RST packet dropped, queue full")
-					}
-				}
+				e.enqueueRST(pkt)
 				continue
 			}
 		}
@@ -212,6 +190,28 @@ func (e *nicObj) WritePackets(list stack.PacketBufferList) (int, tcpip.Error) {
 		}
 	}
 	return list.Len(), nil
+}
+
+// enqueueRST ставит RST-пакет в очередь; при переполнении вытесняет старый
+func (e *nicObj) enqueueRST(pkt *stack.PacketBuffer) {
+	select {
+	case e.rstPackets <- pkt:
+		return
+	default:
+	}
+	// Очередь полна — вытесняем старый пакет
+	select {
+	case old := <-e.rstPackets:
+		old.DecRef()
+		e.logger.Debugf("RST packet evicted from full queue")
+	default:
+	}
+	select {
+	case e.rstPackets <- pkt:
+	default:
+		pkt.DecRef()
+		e.logger.Debugf("RST packet dropped, queue full")
+	}
 }
 
 func (e *nicObj) WriteRawPacket(*stack.PacketBuffer) tcpip.Error {

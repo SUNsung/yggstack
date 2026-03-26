@@ -35,11 +35,7 @@ func newNetstack(ygg *yggcore.Core, log yggcore.Logger) (*netstackObj, error) {
 		}),
 		logger: log,
 	}
-	if s.stack.HandleLocal() {
-		s.stack.AllowICMPMessage()
-	} else if err := s.stack.SetForwardingDefaultAndAllNICs(ipv6.ProtocolNumber, true); err != nil {
-		return nil, fmt.Errorf("SetForwardingDefaultAndAllNICs: %s", err.String())
-	}
+	s.stack.AllowICMPMessage()
 	nic, tcpErr := s.newNIC(ygg)
 	if tcpErr != nil {
 		s.stack.Destroy()

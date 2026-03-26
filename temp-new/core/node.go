@@ -258,7 +258,7 @@ func (o *Obj) GetPeers() []PeerInfoObj {
 // logger — специфичный для multicast (upstream требует *golog.Logger)
 func (o *Obj) EnableMulticast(logger *golog.Logger) error {
 	err := o.multicast.enable(func() (any, func() error, error) {
-		var options []multicast.SetupOption
+		options := make([]multicast.SetupOption, 0, len(o.nodeCfg.MulticastInterfaces))
 		for _, intf := range o.nodeCfg.MulticastInterfaces {
 			re, err := regexp.Compile(intf.Regex)
 			if err != nil {
@@ -363,7 +363,11 @@ func (o *Obj) stopCore() {
 }
 
 func buildCoreOptions(cfg *config.NodeConfig, log yggcore.Logger) []yggcore.SetupOption {
-	var opts []yggcore.SetupOption
+	n := 2 + len(cfg.Listen) + len(cfg.Peers) + len(cfg.AllowedPublicKeys)
+	for _, peers := range cfg.InterfacePeers {
+		n += len(peers)
+	}
+	opts := make([]yggcore.SetupOption, 0, n)
 	opts = append(opts, yggcore.NodeInfo(cfg.NodeInfo))
 	opts = append(opts, yggcore.NodeInfoPrivacy(cfg.NodeInfoPrivacy))
 	for _, addr := range cfg.Listen {

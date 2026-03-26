@@ -56,8 +56,8 @@ func New(dialer DialerInterface, nameserver string) *Obj {
 // Поддерживает: <pubkey>.pk.ygg, IPv6-литералы, DNS-имена (при наличии nameserver)
 func (r *Obj) Resolve(ctx context.Context, name string) (context.Context, net.IP, error) {
 	// Публичный ключ → IPv6
-	if strings.HasSuffix(name, NameMappingSuffix) {
-		ip, err := resolvePublicKey(strings.TrimSuffix(name, NameMappingSuffix))
+	if pkName, ok := strings.CutSuffix(name, NameMappingSuffix); ok {
+		ip, err := resolvePublicKey(pkName)
 		if err != nil {
 			return ctx, nil, err
 		}

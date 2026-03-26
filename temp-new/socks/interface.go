@@ -25,8 +25,6 @@ type LoggerInterface interface {
 	Errorf(format string, args ...interface{})
 }
 
-// // // //
-
 // ObjInterface — контракт SOCKS5-сервера
 type ObjInterface interface {
 	Enable(cfg EnableConfigObj) error
