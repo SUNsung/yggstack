@@ -15,7 +15,7 @@ import (
 	"github.com/yggdrasil-network/yggdrasil-go/src/config"
 
 	yggstack "github.com/yggdrasil-network/yggstack/temp-new"
-	"github.com/yggdrasil-network/yggstack/temp-new/mod/core"
+	"github.com/yggdrasil-network/yggstack/temp-new/mod/forward"
 )
 
 // // // // // // // // // //
@@ -35,29 +35,26 @@ type Yggstack struct {
 	logBridge  *logBridgeObj
 	peerBridge *peerBridgeObj
 
-	// Контекст для форвардинга и мониторинга
+	// fwdMgr создаётся в NewYggstack(), запускается в Start()
+	fwdMgr    *forward.ManagerObj
 	fwdCancel context.CancelFunc
-	fwdWg     sync.WaitGroup
+	peerMonWg sync.WaitGroup
 
 	// Опции до Start()
 	udpTimeout   time.Duration
 	coreStopMs   int64
 	multicast    bool
 	socksMaxConn int
-
-	// Маппинги до Start()
-	localTCPs  []tcpMappingObj
-	localUDPs  []udpMappingObj
-	remoteTCPs []tcpMappingObj
-	remoteUDPs []udpMappingObj
 }
 
 // NewYggstack creates a new Yggstack instance.
 func NewYggstack() *Yggstack {
+	lb := newLogBridge()
 	return &Yggstack{
-		logBridge:  newLogBridge(),
+		logBridge: lb,
 		peerBridge: newPeerBridge(),
 		udpTimeout: defaultUDPSessionTimeout,
+		fwdMgr:    forward.New(lb, defaultUDPSessionTimeout),
 	}
 }
 
@@ -116,6 +113,7 @@ func (y *Yggstack) SetSessionTimeout(ms int64) {
 	y.mu.Lock()
 	if ms > 0 {
 		y.udpTimeout = time.Duration(ms) * time.Millisecond
+		y.fwdMgr.SetTimeout(y.udpTimeout)
 	}
 	y.mu.Unlock()
 }
@@ -194,7 +192,7 @@ func (y *Yggstack) AddLocalTCPMapping(local, remote string) error {
 		return err
 	}
 	y.mu.Lock()
-	y.localTCPs = append(y.localTCPs, m)
+	y.fwdMgr.AddLocalTCP(m)
 	y.mu.Unlock()
 	return nil
 }
@@ -209,7 +207,7 @@ func (y *Yggstack) AddLocalUDPMapping(local, remote string) error {
 		return err
 	}
 	y.mu.Lock()
-	y.localUDPs = append(y.localUDPs, m)
+	y.fwdMgr.AddLocalUDP(m)
 	y.mu.Unlock()
 	return nil
 }
@@ -224,7 +222,7 @@ func (y *Yggstack) AddRemoteTCPMapping(port int, local string) error {
 		return err
 	}
 	y.mu.Lock()
-	y.remoteTCPs = append(y.remoteTCPs, m)
+	y.fwdMgr.AddRemoteTCP(m)
 	y.mu.Unlock()
 	return nil
 }
@@ -239,7 +237,7 @@ func (y *Yggstack) AddRemoteUDPMapping(port int, local string) error {
 		return err
 	}
 	y.mu.Lock()
-	y.remoteUDPs = append(y.remoteUDPs, m)
+	y.fwdMgr.AddRemoteUDP(m)
 	y.mu.Unlock()
 	return nil
 }
@@ -248,8 +246,7 @@ func (y *Yggstack) AddRemoteUDPMapping(port int, local string) error {
 // Must be called before Start(); has no effect while running.
 func (y *Yggstack) ClearLocalMappings() {
 	y.mu.Lock()
-	y.localTCPs = nil
-	y.localUDPs = nil
+	y.fwdMgr.ClearLocal()
 	y.mu.Unlock()
 }
 
@@ -257,8 +254,7 @@ func (y *Yggstack) ClearLocalMappings() {
 // Must be called before Start(); has no effect while running.
 func (y *Yggstack) ClearRemoteMappings() {
 	y.mu.Lock()
-	y.remoteTCPs = nil
-	y.remoteUDPs = nil
+	y.fwdMgr.ClearRemote()
 	y.mu.Unlock()
 }
 
@@ -300,20 +296,17 @@ func (y *Yggstack) Start(socksAddr, nameserver string) error {
 		return fmt.Errorf("start node: %w", err)
 	}
 
-	// SOCKS5
 	if socksAddr != "" {
-		err = node.EnableSOCKS(yggstack.SOCKSConfigObj{
+		if err = node.EnableSOCKS(yggstack.SOCKSConfigObj{
 			Addr:           socksAddr,
 			Nameserver:     nameserver,
 			MaxConnections: y.socksMaxConn,
-		})
-		if err != nil {
+		}); err != nil {
 			_ = node.Close()
 			return fmt.Errorf("enable SOCKS: %w", err)
 		}
 	}
 
-	// Multicast
 	if y.multicast {
 		if err = node.EnableMulticast(nil); err != nil {
 			_ = node.Close()
@@ -323,25 +316,11 @@ func (y *Yggstack) Start(socksAddr, nameserver string) error {
 
 	y.node = node
 
-	// Запуск форвардинга
 	fwdCtx, fwdCancel := context.WithCancel(context.Background())
 	y.fwdCancel = fwdCancel
+	y.fwdMgr.Start(fwdCtx, node)
 
-	if len(y.localTCPs) > 0 {
-		startLocalTCP(fwdCtx, node, y.localTCPs, y.logBridge, &y.fwdWg)
-	}
-	if len(y.remoteTCPs) > 0 {
-		startRemoteTCP(fwdCtx, node, y.remoteTCPs, y.logBridge, &y.fwdWg)
-	}
-	if len(y.localUDPs) > 0 {
-		startLocalUDP(fwdCtx, node, y.localUDPs, y.udpTimeout, y.logBridge, &y.fwdWg)
-	}
-	if len(y.remoteUDPs) > 0 {
-		startRemoteUDP(fwdCtx, node, y.remoteUDPs, y.udpTimeout, y.logBridge, &y.fwdWg)
-	}
-
-	// Мониторинг пиров
-	y.fwdWg.Add(1)
+	y.peerMonWg.Add(1)
 	go y.peerMonitorLoop(fwdCtx)
 
 	return nil
@@ -354,11 +333,10 @@ func (y *Yggstack) Stop() error {
 	if y.node == nil {
 		return nil
 	}
-	if y.fwdCancel != nil {
-		y.fwdCancel()
-	}
+	y.fwdCancel()
 	err := y.node.Close()
-	y.fwdWg.Wait()
+	y.fwdMgr.Wait()
+	y.peerMonWg.Wait()
 	y.node = nil
 	y.fwdCancel = nil
 	return err
@@ -421,8 +399,9 @@ func (y *Yggstack) GetPeers() string {
 	if node == nil {
 		return "[]"
 	}
-	uris := make([]string, 0)
-	for _, p := range node.GetPeers() {
+	peers := node.GetPeers()
+	uris := make([]string, 0, len(peers))
+	for _, p := range peers {
 		uris = append(uris, p.URI)
 	}
 	b, err := json.Marshal(uris)
@@ -489,9 +468,7 @@ func (y *Yggstack) RetryPeersNow() {
 	node := y.node
 	y.mu.Unlock()
 	if node != nil {
-		if coreObj, ok := node.Interface.(*core.Obj); ok {
-			coreObj.UnsafeCore().RetryPeersNow()
-		}
+		node.RetryPeers()
 	}
 }
 
@@ -519,7 +496,7 @@ func (y *Yggstack) TriggerPeerUpdate() {
 
 // peerMonitorLoop периодически проверяет состояние пиров и уведомляет callback
 func (y *Yggstack) peerMonitorLoop(ctx context.Context) {
-	defer y.fwdWg.Done()
+	defer y.peerMonWg.Done()
 	ticker := time.NewTicker(defaultPeerMonitorInterval)
 	defer ticker.Stop()
 

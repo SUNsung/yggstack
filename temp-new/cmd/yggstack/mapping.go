@@ -5,23 +5,13 @@ import (
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/yggdrasil-network/yggstack/temp-new/mod/forward"
 )
 
 // // // // // // // // // //
 
-type tcpMappingObj struct {
-	Listen *net.TCPAddr
-	Mapped *net.TCPAddr
-}
-
-type udpMappingObj struct {
-	Listen *net.UDPAddr
-	Mapped *net.UDPAddr
-}
-
-// //
-
-type tcpLocalMappingsObj []tcpMappingObj
+type tcpLocalMappingsObj []forward.TCPMappingObj
 
 func (m *tcpLocalMappingsObj) String() string { return "" }
 func (m *tcpLocalMappingsObj) Set(value string) error {
@@ -29,14 +19,14 @@ func (m *tcpLocalMappingsObj) Set(value string) error {
 	if err != nil {
 		return err
 	}
-	*m = append(*m, tcpMappingObj{
+	*m = append(*m, forward.TCPMappingObj{
 		Listen: &net.TCPAddr{IP: listenIP, Port: listenPort},
 		Mapped: &net.TCPAddr{IP: mappedIP, Port: mappedPort},
 	})
 	return nil
 }
 
-type tcpRemoteMappingsObj []tcpMappingObj
+type tcpRemoteMappingsObj []forward.TCPMappingObj
 
 func (m *tcpRemoteMappingsObj) String() string { return "" }
 func (m *tcpRemoteMappingsObj) Set(value string) error {
@@ -44,7 +34,7 @@ func (m *tcpRemoteMappingsObj) Set(value string) error {
 	if err != nil {
 		return err
 	}
-	*m = append(*m, tcpMappingObj{
+	*m = append(*m, forward.TCPMappingObj{
 		Listen: &net.TCPAddr{IP: listenIP, Port: listenPort},
 		Mapped: &net.TCPAddr{IP: mappedIP, Port: mappedPort},
 	})
@@ -53,7 +43,7 @@ func (m *tcpRemoteMappingsObj) Set(value string) error {
 
 // //
 
-type udpLocalMappingsObj []udpMappingObj
+type udpLocalMappingsObj []forward.UDPMappingObj
 
 func (m *udpLocalMappingsObj) String() string { return "" }
 func (m *udpLocalMappingsObj) Set(value string) error {
@@ -61,14 +51,14 @@ func (m *udpLocalMappingsObj) Set(value string) error {
 	if err != nil {
 		return err
 	}
-	*m = append(*m, udpMappingObj{
+	*m = append(*m, forward.UDPMappingObj{
 		Listen: &net.UDPAddr{IP: listenIP, Port: listenPort},
 		Mapped: &net.UDPAddr{IP: mappedIP, Port: mappedPort},
 	})
 	return nil
 }
 
-type udpRemoteMappingsObj []udpMappingObj
+type udpRemoteMappingsObj []forward.UDPMappingObj
 
 func (m *udpRemoteMappingsObj) String() string { return "" }
 func (m *udpRemoteMappingsObj) Set(value string) error {
@@ -76,7 +66,7 @@ func (m *udpRemoteMappingsObj) Set(value string) error {
 	if err != nil {
 		return err
 	}
-	*m = append(*m, udpMappingObj{
+	*m = append(*m, forward.UDPMappingObj{
 		Listen: &net.UDPAddr{IP: listenIP, Port: listenPort},
 		Mapped: &net.UDPAddr{IP: mappedIP, Port: mappedPort},
 	})

@@ -6,6 +6,8 @@ import (
 	"net"
 
 	"github.com/yggdrasil-network/yggdrasil-go/src/config"
+
+	"github.com/yggdrasil-network/yggstack/temp-new/mod/forward"
 )
 
 // // // // // // // // // //
@@ -24,65 +26,53 @@ func GenerateConfig() (string, error) {
 
 // //
 
-type tcpMappingObj struct {
-	Listen *net.TCPAddr
-	Mapped *net.TCPAddr
-}
-
-type udpMappingObj struct {
-	Listen *net.UDPAddr
-	Mapped *net.UDPAddr
-}
-
-// //
-
-func parseTCPMapping(listenStr, mappedStr string) (tcpMappingObj, error) {
+func parseTCPMapping(listenStr, mappedStr string) (forward.TCPMappingObj, error) {
 	listenAddr, err := net.ResolveTCPAddr("tcp", listenStr)
 	if err != nil {
-		return tcpMappingObj{}, fmt.Errorf("invalid listen address %q: %w", listenStr, err)
+		return forward.TCPMappingObj{}, fmt.Errorf("invalid listen address %q: %w", listenStr, err)
 	}
 	mappedAddr, err := net.ResolveTCPAddr("tcp", mappedStr)
 	if err != nil {
-		return tcpMappingObj{}, fmt.Errorf("invalid mapped address %q: %w", mappedStr, err)
+		return forward.TCPMappingObj{}, fmt.Errorf("invalid mapped address %q: %w", mappedStr, err)
 	}
-	return tcpMappingObj{Listen: listenAddr, Mapped: mappedAddr}, nil
+	return forward.TCPMappingObj{Listen: listenAddr, Mapped: mappedAddr}, nil
 }
 
-func parseUDPMapping(listenStr, mappedStr string) (udpMappingObj, error) {
+func parseUDPMapping(listenStr, mappedStr string) (forward.UDPMappingObj, error) {
 	listenAddr, err := net.ResolveUDPAddr("udp", listenStr)
 	if err != nil {
-		return udpMappingObj{}, fmt.Errorf("invalid listen address %q: %w", listenStr, err)
+		return forward.UDPMappingObj{}, fmt.Errorf("invalid listen address %q: %w", listenStr, err)
 	}
 	mappedAddr, err := net.ResolveUDPAddr("udp", mappedStr)
 	if err != nil {
-		return udpMappingObj{}, fmt.Errorf("invalid mapped address %q: %w", mappedStr, err)
+		return forward.UDPMappingObj{}, fmt.Errorf("invalid mapped address %q: %w", mappedStr, err)
 	}
-	return udpMappingObj{Listen: listenAddr, Mapped: mappedAddr}, nil
+	return forward.UDPMappingObj{Listen: listenAddr, Mapped: mappedAddr}, nil
 }
 
-func parseRemoteTCPMapping(port int, localStr string) (tcpMappingObj, error) {
+func parseRemoteTCPMapping(port int, localStr string) (forward.TCPMappingObj, error) {
 	if port < 1 || port > 65535 {
-		return tcpMappingObj{}, fmt.Errorf("port %d out of range 1-65535", port)
+		return forward.TCPMappingObj{}, fmt.Errorf("port %d out of range 1-65535", port)
 	}
 	mappedAddr, err := net.ResolveTCPAddr("tcp", localStr)
 	if err != nil {
-		return tcpMappingObj{}, fmt.Errorf("invalid local address %q: %w", localStr, err)
+		return forward.TCPMappingObj{}, fmt.Errorf("invalid local address %q: %w", localStr, err)
 	}
-	return tcpMappingObj{
+	return forward.TCPMappingObj{
 		Listen: &net.TCPAddr{Port: port},
 		Mapped: mappedAddr,
 	}, nil
 }
 
-func parseRemoteUDPMapping(port int, localStr string) (udpMappingObj, error) {
+func parseRemoteUDPMapping(port int, localStr string) (forward.UDPMappingObj, error) {
 	if port < 1 || port > 65535 {
-		return udpMappingObj{}, fmt.Errorf("port %d out of range 1-65535", port)
+		return forward.UDPMappingObj{}, fmt.Errorf("port %d out of range 1-65535", port)
 	}
 	mappedAddr, err := net.ResolveUDPAddr("udp", localStr)
 	if err != nil {
-		return udpMappingObj{}, fmt.Errorf("invalid local address %q: %w", localStr, err)
+		return forward.UDPMappingObj{}, fmt.Errorf("invalid local address %q: %w", localStr, err)
 	}
-	return udpMappingObj{
+	return forward.UDPMappingObj{
 		Listen: &net.UDPAddr{Port: port},
 		Mapped: mappedAddr,
 	}, nil

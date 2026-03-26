@@ -72,6 +72,13 @@ func (o *Obj) EnableSOCKS(cfg SOCKSConfigObj) error {
 	})
 }
 
+// RetryPeers немедленно инициирует переподключение ко всем отключённым пирам
+func (o *Obj) RetryPeers() {
+	if coreNode, ok := o.Interface.(*core.Obj); ok {
+		coreNode.UnsafeCore().RetryPeersNow()
+	}
+}
+
 // DisableSOCKS останавливает SOCKS5-прокси
 func (o *Obj) DisableSOCKS() error {
 	return o.socksServer.Disable()

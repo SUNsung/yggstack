@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/yggdrasil-network/yggdrasil-go/src/version"
 
 	yggstack "github.com/yggdrasil-network/yggstack/temp-new"
+	"github.com/yggdrasil-network/yggstack/temp-new/mod/forward"
 )
 
 // // // // // // // // // //
@@ -204,14 +204,15 @@ func main() {
 	}
 
 	// Port forwarding
-	var fwdWg sync.WaitGroup
-	startLocalTCP(ctx, node, localtcp, logger, &fwdWg)
-	startLocalUDP(ctx, node, localudp, logger, &fwdWg)
-	startRemoteTCP(ctx, node, remotetcp, logger, &fwdWg)
-	startRemoteUDP(ctx, node, remoteudp, logger, &fwdWg)
+	mgr := forward.New(logger, 120*time.Second)
+	mgr.AddLocalTCP(localtcp...)
+	mgr.AddLocalUDP(localudp...)
+	mgr.AddRemoteTCP(remotetcp...)
+	mgr.AddRemoteUDP(remoteudp...)
+	mgr.Start(ctx, node)
 
 	<-ctx.Done()
-	fwdWg.Wait()
+	mgr.Wait()
 	node.Close()
 }
 
