@@ -9,16 +9,12 @@ import (
 	"strings"
 
 	"github.com/yggdrasil-network/yggdrasil-go/src/address"
+	"golang.org/x/net/proxy"
 )
 
 // // // // // // // // // //
 
 const NameMappingSuffix = ".pk.ygg"
-
-// DialerInterface — источник соединений для DNS-запросов через Yggdrasil
-type DialerInterface interface {
-	DialContext(ctx context.Context, network, addr string) (net.Conn, error)
-}
 
 // //
 
@@ -31,7 +27,7 @@ type Obj struct {
 // New создаёт резолвер.
 // dialer используется для DNS-запросов через сеть Yggdrasil.
 // nameserver — адрес DNS-сервера; пустая строка = только .pk.ygg и литералы
-func New(dialer DialerInterface, nameserver string) *Obj {
+func New(dialer proxy.ContextDialer, nameserver string) *Obj {
 	r := &Obj{
 		resolver: &net.Resolver{PreferGo: true},
 	}
