@@ -88,6 +88,7 @@ func (s *Obj) Enable(cfg EnableConfigObj) error {
 		s.listener = &limitedListenerObj{
 			Listener: s.listener,
 			sem:      make(chan struct{}, cfg.MaxConnections),
+			logger:   s.logger,
 		}
 	}
 
@@ -182,16 +183,26 @@ func isAddrInUse(err error) bool {
 // limitedListenerObj ограничивает число одновременных соединений через семафор
 type limitedListenerObj struct {
 	net.Listener
-	sem chan struct{}
+	sem    chan struct{}
+	logger LoggerInterface
 }
 
 func (l *limitedListenerObj) Accept() (net.Conn, error) {
-	conn, err := l.Listener.Accept()
-	if err != nil {
-		return nil, err
+	for {
+		conn, err := l.Listener.Accept()
+		if err != nil {
+			return nil, err
+		}
+		select {
+		case l.sem <- struct{}{}:
+			return &limitedConnObj{Conn: conn, sem: l.sem}, nil
+		default:
+			_ = conn.Close()
+			if l.logger != nil {
+				l.logger.Infof("SOCKS connection rejected: limit %d reached", cap(l.sem))
+			}
+		}
 	}
-	l.sem <- struct{}{}
-	return &limitedConnObj{Conn: conn, sem: l.sem}, nil
 }
 
 // limitedConnObj освобождает слот семафора при закрытии

@@ -74,7 +74,11 @@ func parseAddress(address string) (tcpip.FullAddress, tcpip.NetworkProtocolNumbe
 		}
 	}
 	addr := tcpip.Address{}
-	if ip := net.ParseIP(host); ip != nil {
+	if host != "" {
+		ip := net.ParseIP(host)
+		if ip == nil {
+			return tcpip.FullAddress{}, 0, fmt.Errorf("invalid IP address %q", host)
+		}
 		addr = tcpip.AddrFromSlice(ip.To16())
 	}
 	return tcpip.FullAddress{NIC: 1, Addr: addr, Port: uint16(port)}, ipv6.ProtocolNumber, nil

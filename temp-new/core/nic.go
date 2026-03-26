@@ -105,6 +105,7 @@ func (s *netstackObj) newNIC(ygg *yggcore.Core) (*nicObj, tcpip.Error) {
 	// Маршрут для Yggdrasil-подсети 0200::/7
 	_, snet, err := net.ParseCIDR("0200::/7")
 	if err != nil {
+		nic.Close()
 		return nil, &tcpip.ErrBadAddress{}
 	}
 	subnet, err := tcpip.NewSubnet(
@@ -112,6 +113,7 @@ func (s *netstackObj) newNIC(ygg *yggcore.Core) (*nicObj, tcpip.Error) {
 		tcpip.MaskFrom(string(snet.Mask)),
 	)
 	if err != nil {
+		nic.Close()
 		return nil, &tcpip.ErrBadAddress{}
 	}
 	s.stack.AddRoute(tcpip.Route{Destination: subnet, NIC: 1})
@@ -127,6 +129,7 @@ func (s *netstackObj) newNIC(ygg *yggcore.Core) (*nicObj, tcpip.Error) {
 			},
 			stack.AddressProperties{},
 		); err != nil {
+			nic.Close()
 			return nil, err
 		}
 	}
