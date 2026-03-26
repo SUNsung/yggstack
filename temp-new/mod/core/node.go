@@ -95,36 +95,61 @@ func New(cfg ConfigObj) (*Obj, error) {
 
 // //
 
-// Close корректно останавливает узел; безопасен для повторного вызова
+// Close корректно останавливает узел; безопасен для повторного вызова.
+// Если задан CoreStopTimeout, он ограничивает весь процесс завершения, а не только core.Stop()
 func (o *Obj) Close() error {
 	o.closeOnce.Do(func() {
-		// Компоненты — до закрытия core
-		if err := o.multicast.disable(); err != nil {
-			o.logger.Warnf("multicast disable: %v", err)
-		}
-		if err := o.adminSocket.disable(); err != nil {
-			o.logger.Warnf("admin disable: %v", err)
-		}
-
-		// Зарегистрированные ресурсы (listeners и т.д.)
-		o.closersMu.Lock()
-		for _, c := range o.closers {
-			if err := c.Close(); err != nil {
-				o.logger.Warnf("closer: %v", err)
+		if o.coreTimeout > 0 {
+			done := make(chan struct{})
+			go func() {
+				o.closeSequence()
+				close(done)
+			}()
+			select {
+			case <-done:
+			case <-time.After(o.coreTimeout):
+				o.logger.Warnf("Close() timed out after %s", o.coreTimeout)
+				// Установить nil — дальнейшие вызовы не будут зависать
+				o.netstackPtr.Store(nil)
+				o.core = nil
 			}
-		}
-		o.closers = nil
-		o.closersMu.Unlock()
-
-		// Core останавливается до netstack: ipv6rwc.Read() разблокируется
-		// только после core.Stop()
-		o.stopCore()
-
-		if ns := o.netstackPtr.Swap(nil); ns != nil {
-			ns.close()
+		} else {
+			o.closeSequence()
 		}
 	})
 	return nil
+}
+
+// closeSequence — последовательное завершение всех компонентов
+func (o *Obj) closeSequence() {
+	// Компоненты — до закрытия core
+	if err := o.multicast.disable(); err != nil {
+		o.logger.Warnf("multicast disable: %v", err)
+	}
+	if err := o.adminSocket.disable(); err != nil {
+		o.logger.Warnf("admin disable: %v", err)
+	}
+
+	// Зарегистрированные ресурсы (listeners и т.д.)
+	o.closersMu.Lock()
+	for _, c := range o.closers {
+		if err := c.Close(); err != nil {
+			o.logger.Warnf("closer: %v", err)
+		}
+	}
+	o.closers = nil
+	o.closersMu.Unlock()
+
+	// Core останавливается до netstack: ipv6rwc.Read() разблокируется
+	// только после core.Stop()
+	if o.core != nil {
+		o.core.Stop()
+		o.core = nil
+	}
+
+	if ns := o.netstackPtr.Swap(nil); ns != nil {
+		ns.close()
+	}
 }
 
 // //
@@ -360,28 +385,6 @@ func (o *Obj) addCloser(c io.Closer) {
 	o.closersMu.Lock()
 	o.closers = append(o.closers, c)
 	o.closersMu.Unlock()
-}
-
-func (o *Obj) stopCore() {
-	if o.core == nil {
-		return
-	}
-	if o.coreTimeout == 0 {
-		o.core.Stop()
-		o.core = nil
-		return
-	}
-	done := make(chan struct{})
-	go func() {
-		o.core.Stop()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(o.coreTimeout):
-		o.logger.Warnf("core.Stop() timed out after %s", o.coreTimeout)
-	}
-	o.core = nil
 }
 
 func buildCoreOptions(cfg *config.NodeConfig, log yggcore.Logger) []yggcore.SetupOption {
