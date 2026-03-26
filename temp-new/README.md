@@ -125,7 +125,7 @@ end
 
 subgraph "socks"
 J[Obj — SOCKS5-сервер]
-K[ObjInterface — контракт]
+K[Interface — контракт]
 end
 
 A -->|встраивает|E

@@ -18,7 +18,7 @@ import (
 // Multicast и Admin доступны через core.Interface
 type Obj struct {
 	core.Interface
-	socksServer socks.ObjInterface
+	socksServer socks.Interface
 	logger      yggcore.Logger
 	done        chan struct{}
 	closeOnce   sync.Once

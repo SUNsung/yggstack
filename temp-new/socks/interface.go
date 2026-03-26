@@ -2,8 +2,11 @@ package socks
 
 // // // // // // // // // //
 
-// ObjInterface — контракт SOCKS5-сервера
-type ObjInterface interface {
+// Interface — контракт SOCKS5-сервера
+type Interface interface {
 	Enable(cfg EnableConfigObj) error
 	Disable() error
+	Addr() string
+	IsUnix() bool
+	IsEnabled() bool
 }

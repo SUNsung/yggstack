@@ -16,7 +16,7 @@ import (
 
 // // // // // // // // // //
 
-var _ ObjInterface = (*Obj)(nil)
+var _ Interface = (*Obj)(nil)
 
 // Obj — SOCKS5-прокси-сервер поверх Yggdrasil
 type Obj struct {
@@ -130,6 +130,27 @@ func (s *Obj) Disable() error {
 		s.logger.Infof("SOCKS5 stopped on %s", addr)
 	}
 	return err
+}
+
+// Addr — адрес, на котором слушает SOCKS; пусто если не запущен
+func (s *Obj) Addr() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.addr
+}
+
+// IsUnix — true если SOCKS слушает на Unix-сокете
+func (s *Obj) IsUnix() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.isUnix
+}
+
+// IsEnabled — true если SOCKS запущен
+func (s *Obj) IsEnabled() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.listener != nil
 }
 
 // //
