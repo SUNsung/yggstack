@@ -12,8 +12,8 @@ import (
 
 // // // // // // // // // //
 
-// GenerateConfig generates a new Yggdrasil node configuration with a random key pair.
-// Returns a JSON string suitable for storing and passing to LoadConfigJSON.
+// GenerateConfig генерирует новую конфигурацию ноды Yggdrasil со случайной парой ключей.
+// Возвращает JSON-строку для сохранения и передачи в LoadConfigJSON.
 func GenerateConfig() (string, error) {
 	nodeCfg := config.GenerateConfig()
 	nodeCfg.AdminListen = "none"

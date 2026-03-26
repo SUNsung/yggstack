@@ -29,7 +29,7 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	// Plain TCP server
+	// Обычный TCP-сервер
 	tcpListener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		fmt.Println("Error: listen TCP:", err)
@@ -46,7 +46,7 @@ func main() {
 
 	// //
 
-	// Yggdrasil server
+	// Yggdrasil-сервер
 	cfg := yggconfig.GenerateConfig()
 	cfg.AdminListen = "none"
 	cfg.Peers = []string{peer}

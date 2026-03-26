@@ -88,7 +88,7 @@ func main() {
 		_, _ = w.Write(png)
 	})
 
-	// Plain HTTP servers
+	// Обычные HTTP-серверы
 	for _, port := range cfg.HTTPPorts {
 		l, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 		if err != nil {
@@ -103,7 +103,7 @@ func main() {
 		fmt.Printf("HTTP       http://%s:%d/\n", cfg.Hostname, port)
 	}
 
-	// Yggdrasil HTTP servers
+	// Yggdrasil HTTP-серверы
 	for _, port := range cfg.YggPorts {
 		addr := fmt.Sprintf("[%s]:%d", yggAddr, port)
 		l, err := node.Listen("tcp", addr)

@@ -1,7 +1,7 @@
-// Package mobile provides gomobile bindings for Yggstack.
+// Пакет mobile предоставляет gomobile-биндинги для Yggstack.
 //
-// Build for Android: gomobile bind -target=android -o yggstack.aar .
-// Build for iOS:     gomobile bind -target=ios -o Yggstack.xcframework .
+// Android: gomobile bind -target=android -o yggstack.aar .
+// iOS:     gomobile bind -target=ios -o Yggstack.xcframework .
 package mobile
 
 import (
@@ -27,7 +27,7 @@ const (
 
 // //
 
-// Yggstack is the main mobile binding type. Create with NewYggstack().
+// Yggstack — основной тип мобильного биндинга. Создаётся через NewYggstack().
 type Yggstack struct {
 	mu         sync.Mutex
 	node       *yggstack.Obj
@@ -47,22 +47,21 @@ type Yggstack struct {
 	socksMaxConn int
 }
 
-// NewYggstack creates a new Yggstack instance.
+// NewYggstack создаёт новый экземпляр Yggstack.
 func NewYggstack() *Yggstack {
 	lb := newLogBridge()
 	return &Yggstack{
-		logBridge: lb,
+		logBridge:  lb,
 		peerBridge: newPeerBridge(),
 		udpTimeout: defaultUDPSessionTimeout,
-		fwdMgr:    forward.New(lb, defaultUDPSessionTimeout),
+		fwdMgr:     forward.New(lb, defaultUDPSessionTimeout),
 	}
 }
 
 // // // // // // // // // //
 
-// LoadConfigJSON parses a JSON configuration string and stores it for use on Start().
-// The config must be valid JSON in Yggdrasil NodeConfig format (see GenerateConfig).
-// Returns an error if the node is already running or the JSON is malformed.
+// LoadConfigJSON разбирает JSON-строку конфигурации и сохраняет её для Start().
+// Формат — NodeConfig Yggdrasil (см. GenerateConfig). Возвращает ошибку если нода запущена или JSON невалидный.
 func (y *Yggstack) LoadConfigJSON(jsonStr string) error {
 	y.mu.Lock()
 	defer y.mu.Unlock()
@@ -79,36 +78,31 @@ func (y *Yggstack) LoadConfigJSON(jsonStr string) error {
 	return nil
 }
 
-// SetLogCallback registers a callback for log output.
-// May be called at any time, including while running.
+// SetLogCallback регистрирует колбек для вывода логов. Можно вызывать в любой момент.
 func (y *Yggstack) SetLogCallback(cb LogCallback) {
 	y.logBridge.setCallback(cb)
 }
 
-// SetLogLevel sets the minimum log level to forward to LogCallback.
-// Accepted values: "trace", "debug", "info" (default), "warn", "error".
+// SetLogLevel задаёт минимальный уровень логирования. Допустимые значения: "trace", "debug", "info" (по умолчанию), "warn", "error".
 func (y *Yggstack) SetLogLevel(level string) {
 	y.logBridge.setLevel(level)
 }
 
-// SetPeerChangeCallback registers a callback for peer count change events.
-// May be called at any time, including while running.
+// SetPeerChangeCallback регистрирует колбек на изменение количества подключённых пиров. Можно вызывать в любой момент.
 func (y *Yggstack) SetPeerChangeCallback(cb PeerChangeCallback) {
 	y.peerBridge.setCallback(cb)
 }
 
-// SetCoreStopTimeout sets the maximum time in milliseconds to wait for the Yggdrasil
-// core to stop on Close(). Useful on mobile where network switches can cause hangs.
-// Zero means wait forever (default). Must be called before Start().
+// SetCoreStopTimeout задаёт максимальное время ожидания остановки ядра в мс.
+// 0 — ждать бесконечно (по умолчанию). Вызывать до Start().
 func (y *Yggstack) SetCoreStopTimeout(ms int64) {
 	y.mu.Lock()
 	y.coreStopMs = ms
 	y.mu.Unlock()
 }
 
-// SetSessionTimeout sets the UDP session inactivity timeout in milliseconds.
-// After this duration without traffic, the UDP session is closed. Default: 120000 (120s).
-// Must be called before Start().
+// SetSessionTimeout задаёт таймаут неактивности UDP-сессии в мс.
+// По истечении без трафика сессия закрывается. По умолчанию: 120000 (120с). Вызывать до Start().
 func (y *Yggstack) SetSessionTimeout(ms int64) {
 	y.mu.Lock()
 	if ms > 0 {
@@ -118,16 +112,15 @@ func (y *Yggstack) SetSessionTimeout(ms int64) {
 	y.mu.Unlock()
 }
 
-// SetMulticastEnabled enables or disables mDNS peer discovery on the local network.
-// Must be called before Start().
+// SetMulticastEnabled включает или отключает mDNS-обнаружение пиров в локальной сети. Вызывать до Start().
 func (y *Yggstack) SetMulticastEnabled(enabled bool) {
 	y.mu.Lock()
 	y.multicast = enabled
 	y.mu.Unlock()
 }
 
-// SetSOCKSMaxConnections sets the maximum concurrent SOCKS5 connections.
-// Zero means unlimited (default). Must be called before Start().
+// SetSOCKSMaxConnections задаёт максимальное количество одновременных SOCKS5-соединений.
+// 0 — без ограничений (по умолчанию). Вызывать до Start().
 func (y *Yggstack) SetSOCKSMaxConnections(max int) {
 	y.mu.Lock()
 	y.socksMaxConn = max
@@ -136,9 +129,8 @@ func (y *Yggstack) SetSOCKSMaxConnections(max int) {
 
 // // // // // // // // // //
 
-// AddPeer adds a peer by URI. Supported schemes: tcp, tls, quic, ws, wss.
-// When called before Start(): stored in config and applied on Start().
-// When called while running: connects immediately.
+// AddPeer добавляет пир по URI. Поддерживаемые схемы: tcp, tls, quic, ws, wss.
+// До Start() — сохраняется в конфиг. Во время работы — подключается немедленно.
 func (y *Yggstack) AddPeer(uri string) error {
 	y.mu.Lock()
 	defer y.mu.Unlock()
@@ -158,9 +150,8 @@ func (y *Yggstack) AddPeer(uri string) error {
 	return nil
 }
 
-// RemovePeer removes a peer by URI.
-// When called before Start(): removed from config.
-// When called while running: disconnects immediately.
+// RemovePeer удаляет пир по URI.
+// До Start() — удаляется из конфига. Во время работы — отключается немедленно.
 func (y *Yggstack) RemovePeer(uri string) error {
 	y.mu.Lock()
 	defer y.mu.Unlock()
@@ -182,10 +173,9 @@ func (y *Yggstack) RemovePeer(uri string) error {
 
 // // // // // // // // // //
 
-// AddLocalTCPMapping adds a rule that forwards a local TCP port to a Yggdrasil address.
-// local:  listen address, e.g. "127.0.0.1:8080"
-// remote: Yggdrasil destination, e.g. "[200:1234::1]:80"
-// Must be called before Start(); takes effect on next Start().
+// AddLocalTCPMapping добавляет правило форвардинга локального TCP-порта на Yggdrasil-адрес.
+// local: адрес прослушивания, например "127.0.0.1:8080"; remote: назначение в Yggdrasil, например "[200:1234::1]:80".
+// Вызывать до Start(); вступает в силу при следующем Start().
 func (y *Yggstack) AddLocalTCPMapping(local, remote string) error {
 	m, err := parseTCPMapping(local, remote)
 	if err != nil {
@@ -197,10 +187,9 @@ func (y *Yggstack) AddLocalTCPMapping(local, remote string) error {
 	return nil
 }
 
-// AddLocalUDPMapping adds a rule that forwards a local UDP port to a Yggdrasil address.
-// local:  listen address, e.g. "127.0.0.1:5353"
-// remote: Yggdrasil destination, e.g. "[200:1234::1]:53"
-// Must be called before Start(); takes effect on next Start().
+// AddLocalUDPMapping добавляет правило форвардинга локального UDP-порта на Yggdrasil-адрес.
+// local: адрес прослушивания, например "127.0.0.1:5353"; remote: назначение в Yggdrasil, например "[200:1234::1]:53".
+// Вызывать до Start(); вступает в силу при следующем Start().
 func (y *Yggstack) AddLocalUDPMapping(local, remote string) error {
 	m, err := parseUDPMapping(local, remote)
 	if err != nil {
@@ -212,10 +201,9 @@ func (y *Yggstack) AddLocalUDPMapping(local, remote string) error {
 	return nil
 }
 
-// AddRemoteTCPMapping exposes a local TCP service on the Yggdrasil network.
-// port:  the Yggdrasil-side listen port (1-65535)
-// local: the local service to forward to, e.g. "127.0.0.1:80"
-// Must be called before Start(); takes effect on next Start().
+// AddRemoteTCPMapping открывает локальный TCP-сервис в сети Yggdrasil.
+// port: порт прослушивания на стороне Yggdrasil (1-65535); local: локальный сервис, например "127.0.0.1:80".
+// Вызывать до Start(); вступает в силу при следующем Start().
 func (y *Yggstack) AddRemoteTCPMapping(port int, local string) error {
 	m, err := parseRemoteTCPMapping(port, local)
 	if err != nil {
@@ -227,10 +215,9 @@ func (y *Yggstack) AddRemoteTCPMapping(port int, local string) error {
 	return nil
 }
 
-// AddRemoteUDPMapping exposes a local UDP service on the Yggdrasil network.
-// port:  the Yggdrasil-side listen port (1-65535)
-// local: the local service to forward to, e.g. "127.0.0.1:53"
-// Must be called before Start(); takes effect on next Start().
+// AddRemoteUDPMapping открывает локальный UDP-сервис в сети Yggdrasil.
+// port: порт прослушивания на стороне Yggdrasil (1-65535); local: локальный сервис, например "127.0.0.1:53".
+// Вызывать до Start(); вступает в силу при следующем Start().
 func (y *Yggstack) AddRemoteUDPMapping(port int, local string) error {
 	m, err := parseRemoteUDPMapping(port, local)
 	if err != nil {
@@ -242,16 +229,16 @@ func (y *Yggstack) AddRemoteUDPMapping(port int, local string) error {
 	return nil
 }
 
-// ClearLocalMappings removes all pending local TCP/UDP forwarding rules.
-// Must be called before Start(); has no effect while running.
+// ClearLocalMappings удаляет все ожидающие локальные правила TCP/UDP-форвардинга.
+// Вызывать до Start(); во время работы не имеет эффекта.
 func (y *Yggstack) ClearLocalMappings() {
 	y.mu.Lock()
 	y.fwdMgr.ClearLocal()
 	y.mu.Unlock()
 }
 
-// ClearRemoteMappings removes all pending remote TCP/UDP forwarding rules.
-// Must be called before Start(); has no effect while running.
+// ClearRemoteMappings удаляет все ожидающие удалённые правила TCP/UDP-форвардинга.
+// Вызывать до Start(); во время работы не имеет эффекта.
 func (y *Yggstack) ClearRemoteMappings() {
 	y.mu.Lock()
 	y.fwdMgr.ClearRemote()
@@ -260,16 +247,11 @@ func (y *Yggstack) ClearRemoteMappings() {
 
 // // // // // // // // // //
 
-// Start launches the Yggdrasil node with SOCKS5 proxy on socksAddr and optional
-// Yggdrasil-side DNS nameserver. Returns an error if already running or start fails.
+// Start запускает ноду Yggdrasil с SOCKS5-прокси на socksAddr и опциональным DNS-сервером.
+// Возвращает ошибку если нода уже запущена или запуск не удался.
 //
-// socksAddr:  TCP or UNIX socket address for the SOCKS5 proxy, e.g. "127.0.0.1:1080"
-//
-//	or "/tmp/yggstack.sock". Empty string disables SOCKS5.
-//
-// nameserver: Yggdrasil-accessible DNS server for .ygg domains, e.g. "[324:71e::53]:53".
-//
-//	Empty string disables external .ygg DNS resolution.
+// socksAddr: адрес SOCKS5-прокси (TCP или UNIX-сокет), например "127.0.0.1:1080". Пустая строка — SOCKS5 отключён.
+// nameserver: DNS-сервер в сети Yggdrasil для доменов .ygg. Пустая строка — внешнее .ygg DNS отключено.
 func (y *Yggstack) Start(socksAddr, nameserver string) error {
 	y.mu.Lock()
 	defer y.mu.Unlock()
@@ -326,7 +308,7 @@ func (y *Yggstack) Start(socksAddr, nameserver string) error {
 	return nil
 }
 
-// Stop shuts down the node and all port forwarding. Safe to call if not running.
+// Stop останавливает ноду и весь форвардинг портов. Безопасен при вызове если нода не запущена.
 func (y *Yggstack) Stop() error {
 	y.mu.Lock()
 	defer y.mu.Unlock()
@@ -342,7 +324,7 @@ func (y *Yggstack) Stop() error {
 	return err
 }
 
-// IsRunning returns true if the node is currently started.
+// IsRunning возвращает true если нода запущена.
 func (y *Yggstack) IsRunning() bool {
 	y.mu.Lock()
 	running := y.node != nil
@@ -352,8 +334,8 @@ func (y *Yggstack) IsRunning() bool {
 
 // // // // // // // // // //
 
-// GetAddress returns the node's Yggdrasil IPv6 address, e.g. "200:1234::1".
-// Returns empty string if not running.
+// GetAddress возвращает IPv6-адрес ноды в сети Yggdrasil, например "200:1234::1".
+// Возвращает пустую строку если нода не запущена.
 func (y *Yggstack) GetAddress() string {
 	y.mu.Lock()
 	node := y.node
@@ -364,8 +346,8 @@ func (y *Yggstack) GetAddress() string {
 	return node.Address().String()
 }
 
-// GetSubnet returns the node's Yggdrasil IPv6 subnet, e.g. "300:1234::/64".
-// Returns empty string if not running.
+// GetSubnet возвращает IPv6-подсеть ноды в сети Yggdrasil, например "300:1234::/64".
+// Возвращает пустую строку если нода не запущена.
 func (y *Yggstack) GetSubnet() string {
 	y.mu.Lock()
 	node := y.node
@@ -377,8 +359,8 @@ func (y *Yggstack) GetSubnet() string {
 	return s.String()
 }
 
-// GetPublicKey returns the node's Ed25519 public key as a hex string.
-// Returns empty string if not running.
+// GetPublicKey возвращает Ed25519 публичный ключ ноды в виде hex-строки.
+// Возвращает пустую строку если нода не запущена.
 func (y *Yggstack) GetPublicKey() string {
 	y.mu.Lock()
 	node := y.node
@@ -389,9 +371,8 @@ func (y *Yggstack) GetPublicKey() string {
 	return hex.EncodeToString(node.PublicKey())
 }
 
-// GetPeers returns the list of configured peer URIs as a JSON array.
-// Includes both connected and disconnected peers.
-// Returns "[]" if not running.
+// GetPeers возвращает список URI настроенных пиров в виде JSON-массива.
+// Включает как подключённые, так и отключённые пиры. Возвращает "[]" если нода не запущена.
 func (y *Yggstack) GetPeers() string {
 	y.mu.Lock()
 	node := y.node
@@ -425,9 +406,9 @@ type peerJSONObj struct {
 	LastError     string `json:"last_error,omitempty"`
 }
 
-// GetPeersJSON returns detailed peer statistics as a JSON array.
-// Each entry includes URI, connection state, traffic counters, latency, and uptime.
-// Returns "[]" if not running or on error.
+// GetPeersJSON возвращает детальную статистику по пирам в виде JSON-массива.
+// Каждая запись содержит URI, состояние соединения, счётчики трафика, задержку и аптайм.
+// Возвращает "[]" если нода не запущена или при ошибке.
 func (y *Yggstack) GetPeersJSON() string {
 	y.mu.Lock()
 	node := y.node
@@ -461,8 +442,8 @@ func (y *Yggstack) GetPeersJSON() string {
 	return string(b)
 }
 
-// RetryPeersNow forces an immediate reconnection attempt to all disconnected peers.
-// No-op if not running.
+// RetryPeersNow инициирует немедленное переподключение ко всем отключённым пирам.
+// Не выполняет действий если нода не запущена.
 func (y *Yggstack) RetryPeersNow() {
 	y.mu.Lock()
 	node := y.node
@@ -472,9 +453,9 @@ func (y *Yggstack) RetryPeersNow() {
 	}
 }
 
-// TriggerPeerUpdate fires the PeerChangeCallback with the current peer count.
-// Useful for refreshing UI state after registering a callback while already running.
-// No-op if not running or no callback is set.
+// TriggerPeerUpdate вызывает PeerChangeCallback с текущим количеством пиров.
+// Полезно для обновления UI после регистрации колбека во время работы.
+// Не выполняет действий если нода не запущена или колбек не установлен.
 func (y *Yggstack) TriggerPeerUpdate() {
 	y.mu.Lock()
 	node := y.node

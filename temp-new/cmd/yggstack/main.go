@@ -186,12 +186,12 @@ func main() {
 		panic(err)
 	}
 
-	// Multicast
+	// Мультикаст
 	if err := node.EnableMulticast(logger); err != nil {
 		logger.Warnf("Multicast: %v", err)
 	}
 
-	// SOCKS5
+	// SOCKS5-прокси
 	if *socks != "" {
 		if err := node.EnableSOCKS(yggstack.SOCKSConfigObj{
 			Addr:           *socks,
@@ -203,7 +203,7 @@ func main() {
 		}
 	}
 
-	// Port forwarding
+	// Форвардинг портов
 	mgr := forward.New(logger, 120*time.Second)
 	mgr.AddLocalTCP(localtcp...)
 	mgr.AddLocalUDP(localudp...)
