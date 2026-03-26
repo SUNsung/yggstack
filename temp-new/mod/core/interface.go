@@ -4,9 +4,9 @@ import (
 	"context"
 	"crypto/ed25519"
 	"net"
-	"time"
 
 	golog "github.com/gologme/log"
+	yggcore "github.com/yggdrasil-network/yggdrasil-go/src/core"
 )
 
 // // // // // // // // // //
@@ -22,27 +22,10 @@ type Interface interface {
 	MTU() uint64
 	AddPeer(uri string) error
 	RemovePeer(uri string) error
-	GetPeers() []PeerInfoObj
-	EnableMulticast(logger *golog.Logger) error
+	GetPeers() []yggcore.PeerInfo
+	EnableMulticast(logger *golog.Logger) error //todo: gologme временно пока не зарелизится новая версия Yggdrasil
 	DisableMulticast() error
 	EnableAdmin(addr string) error
 	DisableAdmin() error
 	Close() error
-}
-
-// PeerInfoObj — информация о пире
-type PeerInfoObj struct {
-	URI     string
-	Up      bool
-	Inbound bool
-	Key     ed25519.PublicKey
-	Latency time.Duration
-	Cost    uint64
-	RXBytes uint64
-	TXBytes uint64
-	Uptime  time.Duration
-
-	// Последняя ошибка подключения; nil если нет
-	LastError     error
-	LastErrorTime time.Time
 }

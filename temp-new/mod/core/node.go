@@ -274,28 +274,11 @@ func (o *Obj) RemovePeer(uri string) error {
 }
 
 // GetPeers возвращает информацию обо всех пирах (подключённых и настроенных)
-func (o *Obj) GetPeers() []PeerInfoObj {
+func (o *Obj) GetPeers() []yggcore.PeerInfo {
 	if o.core == nil {
 		return nil
 	}
-	peers := o.core.GetPeers()
-	result := make([]PeerInfoObj, len(peers))
-	for i, p := range peers {
-		result[i] = PeerInfoObj{
-			URI:           p.URI,
-			Up:            p.Up,
-			Inbound:       p.Inbound,
-			Key:           p.Key,
-			Latency:       p.Latency,
-			Cost:          p.Cost,
-			RXBytes:       p.RXBytes,
-			TXBytes:       p.TXBytes,
-			Uptime:        p.Uptime,
-			LastError:     p.LastError,
-			LastErrorTime: p.LastErrorTime,
-		}
-	}
-	return result
+	return o.core.GetPeers()
 }
 
 // //

@@ -61,11 +61,9 @@ func New(cfg ConfigObj) (*Obj, error) {
 // EnableSOCKS запускает SOCKS5-прокси с указанными параметрами.
 // Резолвер создаётся автоматически на основе cfg.Nameserver
 func (o *Obj) EnableSOCKS(cfg SOCKSConfigObj) error {
-	res := resolver.New(o.Interface, cfg.Nameserver)
-
 	return o.socksServer.Enable(socks.EnableConfigObj{
 		Addr:           cfg.Addr,
-		Resolver:       res,
+		Resolver:       resolver.New(o.Interface, cfg.Nameserver),
 		Verbose:        cfg.Verbose,
 		Logger:         o.logger,
 		MaxConnections: cfg.MaxConnections,
