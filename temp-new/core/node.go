@@ -31,9 +31,8 @@ type Obj struct {
 	nodeCfg     *config.NodeConfig
 	netstackPtr atomic.Pointer[netstackObj]
 	logger      yggcore.Logger
-	multicast   *multicast.Multicast
-	adminSocket *admin.AdminSocket
-	mu          sync.Mutex
+	multicast   componentObj
+	adminSocket componentObj
 	closeOnce   sync.Once
 	closers     []io.Closer
 	closersMu   sync.Mutex
@@ -58,6 +57,8 @@ func New(cfg ConfigObj) (*Obj, error) {
 		nodeCfg:     nodeCfg,
 		logger:      log,
 		coreTimeout: cfg.CoreStopTimeout,
+		multicast:   componentObj{name: "multicast"},
+		adminSocket: componentObj{name: "admin"},
 	}
 
 	// Ядро Yggdrasil
@@ -87,19 +88,9 @@ func New(cfg ConfigObj) (*Obj, error) {
 // Close корректно останавливает узел; безопасен для повторного вызова
 func (o *Obj) Close() error {
 	o.closeOnce.Do(func() {
-		o.mu.Lock()
-
-		// Multicast и admin — до закрытия core
-		if o.multicast != nil {
-			_ = o.multicast.Stop()
-			o.multicast = nil
-		}
-		if o.adminSocket != nil {
-			_ = o.adminSocket.Stop()
-			o.adminSocket = nil
-		}
-
-		o.mu.Unlock()
+		// Компоненты — до закрытия core
+		_ = o.multicast.disable()
+		_ = o.adminSocket.disable()
 
 		// Зарегистрированные ресурсы (listeners и т.д.)
 		o.closersMu.Lock()
@@ -232,54 +223,37 @@ func (o *Obj) RemovePeer(uri string) error {
 // Интерфейсы берутся из NodeConfig.MulticastInterfaces.
 // logger — специфичный для multicast (upstream требует *golog.Logger)
 func (o *Obj) EnableMulticast(logger *golog.Logger) error {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	if o.multicast != nil {
-		return fmt.Errorf("multicast already enabled")
-	}
-
-	var options []multicast.SetupOption
-	for _, intf := range o.nodeCfg.MulticastInterfaces {
-		re, err := regexp.Compile(intf.Regex)
-		if err != nil {
-			return fmt.Errorf("invalid multicast regex %q: %w", intf.Regex, err)
+	return o.multicast.enable(func() (any, func() error, error) {
+		var options []multicast.SetupOption
+		for _, intf := range o.nodeCfg.MulticastInterfaces {
+			re, err := regexp.Compile(intf.Regex)
+			if err != nil {
+				return nil, nil, fmt.Errorf("invalid multicast regex %q: %w", intf.Regex, err)
+			}
+			options = append(options, multicast.MulticastInterface{
+				Regex:    re,
+				Beacon:   intf.Beacon,
+				Listen:   intf.Listen,
+				Port:     intf.Port,
+				Priority: uint8(intf.Priority),
+				Password: intf.Password,
+			})
 		}
-		options = append(options, multicast.MulticastInterface{
-			Regex:    re,
-			Beacon:   intf.Beacon,
-			Listen:   intf.Listen,
-			Port:     intf.Port,
-			Priority: uint8(intf.Priority),
-			Password: intf.Password,
-		})
-	}
-
-	var err error
-	o.multicast, err = multicast.New(o.core, logger, options...)
-	if err != nil {
-		return fmt.Errorf("multicast.New: %w", err)
-	}
-
-	// Регистрация admin-хендлеров если admin уже включён
-	if o.adminSocket != nil {
-		o.multicast.SetupAdminHandlers(o.adminSocket)
-	}
-
-	return nil
+		mc, err := multicast.New(o.core, logger, options...)
+		if err != nil {
+			return nil, nil, fmt.Errorf("multicast.New: %w", err)
+		}
+		// Регистрация admin-хендлеров если admin уже включён
+		if as, ok := o.adminSocket.get().(*admin.AdminSocket); ok && as != nil {
+			mc.SetupAdminHandlers(as)
+		}
+		return mc, mc.Stop, nil
+	})
 }
 
 // DisableMulticast останавливает mDNS-обнаружение
 func (o *Obj) DisableMulticast() error {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	if o.multicast == nil {
-		return nil
-	}
-	err := o.multicast.Stop()
-	o.multicast = nil
-	return err
+	return o.multicast.disable()
 }
 
 // //
@@ -287,41 +261,25 @@ func (o *Obj) DisableMulticast() error {
 // EnableAdmin запускает admin-сокет на указанном адресе.
 // Формат: "unix:///path" или "tcp://host:port"
 func (o *Obj) EnableAdmin(addr string) error {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	if o.adminSocket != nil {
-		return fmt.Errorf("admin already enabled")
-	}
-
-	var err error
-	o.adminSocket, err = admin.New(o.core, o.logger, admin.ListenAddress(addr))
-	if err != nil {
-		return fmt.Errorf("admin.New: %w", err)
-	}
-	if o.adminSocket != nil {
-		o.adminSocket.SetupAdminHandlers()
-	}
-
-	// Регистрация multicast-хендлеров если multicast уже включён
-	if o.multicast != nil && o.adminSocket != nil {
-		o.multicast.SetupAdminHandlers(o.adminSocket)
-	}
-
-	return nil
+	return o.adminSocket.enable(func() (any, func() error, error) {
+		as, err := admin.New(o.core, o.logger, admin.ListenAddress(addr))
+		if err != nil {
+			return nil, nil, fmt.Errorf("admin.New: %w", err)
+		}
+		if as != nil {
+			as.SetupAdminHandlers()
+		}
+		// Регистрация multicast-хендлеров если multicast уже включён
+		if mc, ok := o.multicast.get().(*multicast.Multicast); ok && mc != nil {
+			mc.SetupAdminHandlers(as)
+		}
+		return as, as.Stop, nil
+	})
 }
 
 // DisableAdmin останавливает admin-сокет
 func (o *Obj) DisableAdmin() error {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	if o.adminSocket == nil {
-		return nil
-	}
-	err := o.adminSocket.Stop()
-	o.adminSocket = nil
-	return err
+	return o.adminSocket.disable()
 }
 
 // //
@@ -378,21 +336,3 @@ func buildCoreOptions(cfg *config.NodeConfig) []yggcore.SetupOption {
 	}
 	return opts
 }
-
-// //
-
-// noopLoggerObj — логгер-заглушка при отсутствии пользовательского логгера
-type noopLoggerObj struct{}
-
-func (noopLoggerObj) Printf(string, ...interface{}) {}
-func (noopLoggerObj) Println(...interface{})        {}
-func (noopLoggerObj) Infof(string, ...interface{})  {}
-func (noopLoggerObj) Infoln(...interface{})         {}
-func (noopLoggerObj) Warnf(string, ...interface{})  {}
-func (noopLoggerObj) Warnln(...interface{})         {}
-func (noopLoggerObj) Errorf(string, ...interface{}) {}
-func (noopLoggerObj) Errorln(...interface{})        {}
-func (noopLoggerObj) Debugf(string, ...interface{}) {}
-func (noopLoggerObj) Debugln(...interface{})        {}
-func (noopLoggerObj) Tracef(string, ...interface{}) {}
-func (noopLoggerObj) Traceln(...interface{})        {}

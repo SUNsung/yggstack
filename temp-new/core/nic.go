@@ -17,6 +17,9 @@ import (
 
 // // // // // // // // // //
 
+// Проверка реализации интерфейса на этапе компиляции
+var _ stack.LinkEndpoint = (*nicObj)(nil)
+
 var writeBufPool = sync.Pool{
 	New: func() interface{} { return make([]byte, 65535) },
 }
