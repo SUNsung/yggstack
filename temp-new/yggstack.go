@@ -5,9 +5,9 @@ import (
 
 	yggcore "github.com/yggdrasil-network/yggdrasil-go/src/core"
 
-	"github.com/yggdrasil-network/yggstack/temp-new/core"
-	"github.com/yggdrasil-network/yggstack/temp-new/resolver"
-	"github.com/yggdrasil-network/yggstack/temp-new/socks"
+	"github.com/yggdrasil-network/yggstack/temp-new/mod/core"
+	"github.com/yggdrasil-network/yggstack/temp-new/mod/resolver"
+	"github.com/yggdrasil-network/yggstack/temp-new/mod/socks"
 )
 
 // // // // // // // // // //
