@@ -42,6 +42,7 @@ func newNetstack(ygg *yggcore.Core, log yggcore.Logger) (*netstackObj, error) {
 	}
 	nic, tcpErr := s.newNIC(ygg)
 	if tcpErr != nil {
+		s.stack.Destroy()
 		return nil, fmt.Errorf("newNIC: %s", tcpErr.String())
 	}
 	s.nic = nic
