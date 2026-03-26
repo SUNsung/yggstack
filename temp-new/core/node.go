@@ -64,7 +64,7 @@ func New(cfg ConfigObj) (*Obj, error) {
 
 	// Ядро Yggdrasil
 	var err error
-	obj.core, err = yggcore.New(nodeCfg.Certificate, log, buildCoreOptions(nodeCfg)...)
+	obj.core, err = yggcore.New(nodeCfg.Certificate, log, buildCoreOptions(nodeCfg, log)...)
 	if err != nil {
 		return nil, fmt.Errorf("core.New: %w", err)
 	}
@@ -328,7 +328,7 @@ func (o *Obj) stopCore() {
 	o.core = nil
 }
 
-func buildCoreOptions(cfg *config.NodeConfig) []yggcore.SetupOption {
+func buildCoreOptions(cfg *config.NodeConfig, log yggcore.Logger) []yggcore.SetupOption {
 	var opts []yggcore.SetupOption
 	opts = append(opts, yggcore.NodeInfo(cfg.NodeInfo))
 	opts = append(opts, yggcore.NodeInfoPrivacy(cfg.NodeInfoPrivacy))
@@ -346,6 +346,7 @@ func buildCoreOptions(cfg *config.NodeConfig) []yggcore.SetupOption {
 	for _, allowed := range cfg.AllowedPublicKeys {
 		k, err := hex.DecodeString(allowed)
 		if err != nil {
+			log.Debugf("Skipping invalid AllowedPublicKey %q: %v", allowed, err)
 			continue
 		}
 		opts = append(opts, yggcore.AllowedPublicKey(k[:]))

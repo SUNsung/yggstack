@@ -25,6 +25,7 @@ type DialerInterface interface {
 // Obj — резолвер имён с поддержкой .pk.ygg и DNS через Yggdrasil
 type Obj struct {
 	resolver *net.Resolver
+	hasDNS   bool
 }
 
 // New создаёт резолвер.
@@ -35,6 +36,7 @@ func New(dialer DialerInterface, nameserver string) *Obj {
 		resolver: &net.Resolver{PreferGo: true},
 	}
 	if nameserver != "" {
+		r.hasDNS = true
 		ns := nameserver
 		r.resolver.Dial = func(ctx context.Context, network, _ string) (net.Conn, error) {
 			host, port, err := net.SplitHostPort(ns)
@@ -67,7 +69,10 @@ func (r *Obj) Resolve(ctx context.Context, name string) (context.Context, net.IP
 		return ctx, ip, nil
 	}
 
-	// DNS
+	// DNS — только если настроен nameserver
+	if !r.hasDNS {
+		return ctx, nil, fmt.Errorf("cannot resolve %q: no nameserver configured", name)
+	}
 	addrs, err := r.resolver.LookupIP(ctx, "ip6", name)
 	if err != nil {
 		return ctx, nil, fmt.Errorf("lookup %q: %w", name, err)

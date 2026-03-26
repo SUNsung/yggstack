@@ -96,9 +96,6 @@ func (s *netstackObj) newNIC(ygg *yggcore.Core) (*nicObj, tcpip.Error) {
 					}
 				}
 			case pkt := <-nic.rstPackets:
-				if pkt == nil {
-					continue
-				}
 				_ = nic.writePacket(pkt)
 				pkt.DecRef()
 			}
